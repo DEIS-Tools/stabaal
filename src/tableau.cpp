@@ -37,7 +37,7 @@ void Tableau::clean_up(int pivot, Generator& gen) {
     if (!gen.z[pivot]) return;
     
     // s^dagger applied to pivot
-    for (int i = 0; i < qubits; ++i) {
+    for (auto i = 0; i < qubits; ++i) {
         hadamard[i].r        ^= hadamard[i].x[pivot] & !hadamard[i].z[pivot];
         hadamard[i].z[pivot] ^= hadamard[i].x[pivot];
 
@@ -140,7 +140,7 @@ void Tableau::print() {
 }
 
 void Tableau::swap_bit(bit_ref a, bit_ref b) {
-    bool temp = a;
+    auto temp = bool{a};
     a = b;
     b = temp;
 }
@@ -150,7 +150,7 @@ int Tableau::e(const Generator& a, const Generator& b) {
 }
 
 bool Tableau::phase(const Generator& a, const Generator& b, int phase_rule) {
-    int val = (e(a, b) + 2 * a.r + 2 * b.r + phase_rule) & 3;
+    auto val = (e(a, b) + 2 * a.r + 2 * b.r + phase_rule) & 3;
     if (val % 2 == 1) 
         throw std::runtime_error("Final phase came out to uneven numbers, meaning there has been a mistake");
     return val == 2;
