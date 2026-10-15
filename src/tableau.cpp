@@ -3,13 +3,13 @@
 void Tableau::add() {
     ++qubits;
     
-    for (auto gen : computational) {
-        gen.x.append(false);
-        gen.z.append(false);
+    for (auto& gen : computational) {
+        gen.x.push_back(false);
+        gen.z.push_back(false);
     }
-    for (auto gen : hadamard) {
-        gen.x.append(false);
-        gen.z.append(false);
+    for (auto& gen : hadamard) {
+        gen.x.push_back(false);
+        gen.z.push_back(false);
     }
     computational.emplace_back(qubits);
     hadamard.emplace_back(qubits);
@@ -19,7 +19,8 @@ void Tableau::add() {
     hadamard[last].x[last]      = true;
 }
 
-void Tableau::clean_up(int pivot, Generator gen) {
+void Tableau::clean_up(int pivot, Generator& gen) {
+    // cx between pivot and all columns with x in the measured row.
     for (auto i = pivot+1; i < qubits; ++i) {
         if (!gen.x[i]) continue;
 
@@ -36,8 +37,13 @@ void Tableau::clean_up(int pivot, Generator gen) {
     if (!gen.z[pivot]) return;
     
     // s^dagger applied to pivot
-    gen.r        ^= gen.x[pivot] * !gen.z[pivot];
-    gen.z[pivot] ^= gen.x[pivot];
+    for (int i = 0; i < qubits; ++i) {
+        hadamard[i].r        ^= hadamard[i].x[pivot] & !hadamard[i].z[pivot];
+        hadamard[i].z[pivot] ^= hadamard[i].x[pivot];
+
+        computational[i].r        ^= computational[i].x[pivot] & !computational[i].z[pivot];
+        computational[i].z[pivot] ^= computational[i].x[pivot];
+    }
 }
 
 void Tableau::collapse(int pivot, bool p) {
@@ -52,7 +58,7 @@ void Tableau::collapse(int pivot, bool p) {
 }
 
 bool Tableau::random_measurement(int q, Basis b) {
-    auto gen = (b == COMPUTATIONAL) ? computational[q] : hadamard[q];
+    auto &gen = (b == COMPUTATIONAL) ? computational[q] : hadamard[q];
     auto pivot = 0;
 
     for (auto i = 0; i < qubits; ++i) {
@@ -61,7 +67,7 @@ bool Tableau::random_measurement(int q, Basis b) {
     clean_up(pivot, gen);
     auto p = rand() % 2;
     collapse(pivot, p);
-    return p;
+    return gen.r;
 }
 
 bool Tableau::measure_z(int q) {
@@ -89,7 +95,7 @@ void Tableau::apply_cx(int c, int t) {
     hadamard[c].x ^= hadamard[t].x;
     hadamard[c].z ^= hadamard[t].z;
 
-    computational[c].r  = phase(computational[c], computational[t], 0);
+    computational[t].r  = phase(computational[c], computational[t], 0);
     computational[t].x ^= computational[c].x;
     computational[t].z ^= computational[c].z;
 }
@@ -139,12 +145,12 @@ void Tableau::swap_bit(bit_ref a, bit_ref b) {
     b = temp;
 }
 
-int Tableau::e(Generator a, Generator b) {
+int Tableau::e(const Generator& a, const Generator& b) {
     return (a.z & a.x).count() + (b.z & b.x).count() + 2 * (a.z & b.x).count() - ((a.x ^ b.x) & (a.z ^ b.z)).count();
 }
 
-bool Tableau::phase(Generator a, Generator b, int phase_rule) {
-    int val = ((e(a, b) + 2 * a.r + 2 * b.r + phase_rule) % 4 + 4);
+bool Tableau::phase(const Generator& a, const Generator& b, int phase_rule) {
+    int val = (e(a, b) + 2 * a.r + 2 * b.r + phase_rule) & 3;
     if (val % 2 == 1) 
         throw std::runtime_error("Final phase came out to uneven numbers, meaning there has been a mistake");
     return val == 2;

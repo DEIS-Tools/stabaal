@@ -47,16 +47,18 @@ class Tableau {
     void print();
     
    private:
+    friend struct TableauTestAccess;
+
     basis_table computational;
     basis_table hadamard;    
     uint64_t qubits;
 
-    void clean_up(int pivot, Generator gen);
+    void clean_up(int pivot, Generator& gen);
     void collapse(int pivot, bool p);
     bool random_measurement(int q, Basis b);
     
-    int e(Generator a, Generator b);
-    bool phase(Generator a, Generator b, int phase_rule);
+    int e(const Generator& a, const Generator& b);
+    bool phase(const Generator& a, const Generator& b, int phase_rule);
 
     void swap_bit(bit_ref a, bit_ref b);
 };
