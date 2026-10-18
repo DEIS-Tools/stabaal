@@ -19,6 +19,7 @@ Checks: >
   -misc-use-internal-linkage,
   -misc-use-anonymous-namespace
 WarningsAsErrors: '*'
+ExtraArgs: ['-std=c++20']
 HeaderFilterRegex: '(^|/)include/.*'
 CheckOptions:
   - key: readability-braces-around-statements.ShortStatementLines

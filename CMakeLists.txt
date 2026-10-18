@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.31)
 project(STABAAL LANGUAGES CXX)
 
+if(CMAKE_INTERPROCEDURAL_OPTIMIZATION)
+    include(CheckIPOSupported)
+    check_ipo_supported(LANGUAGES CXX)
+endif()
+
 find_package(Boost REQUIRED)
 
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
@@ -9,6 +14,12 @@ target_compile_features(stabaal PUBLIC cxx_std_20)
 
 target_include_directories(stabaal PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 target_link_libraries(stabaal PRIVATE Boost::headers)
+
+option(BUILD_BENCHMARKS "Build the tableau benchmark" OFF)
+if(BUILD_BENCHMARKS)
+    add_executable(stabaal_bench benchmarks/bench.cpp)
+    target_link_libraries(stabaal_bench PRIVATE stabaal Boost::headers)
+endif()
 
 include(CTest)
 if(BUILD_TESTING)
