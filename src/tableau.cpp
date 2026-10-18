@@ -1,11 +1,11 @@
 #include "tableau.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <random>
-#include <stdexcept>
 #include <string>
 
 #include "generator.hpp"
@@ -46,7 +46,7 @@ void Tableau::add() {
     hadamard_[last].x[last] = true;
 }
 
-void Tableau::cleanUp_(int pivot, const Generator& gen) {
+void Tableau::cleanUp_(int pivot, const Generator& gen) noexcept {
     // cx between pivot and all columns with x in the measured row.
     for (auto i = pivot + 1; i < qubits_; ++i) {
         if (!gen.x[i]) continue;
@@ -77,7 +77,7 @@ void Tableau::cleanUp_(int pivot, const Generator& gen) {
     }
 }
 
-void Tableau::collapse_(int pivot, bool p) {
+void Tableau::collapse_(int pivot, bool p) noexcept {
     // Apply X on the pivot when the measured outcome is 1 (p).
     for (int i = 0; i < qubits_; ++i) {
         swapBit_(computational_[i].x[pivot], computational_[i].z[pivot]);
@@ -131,7 +131,7 @@ void Tableau::applyCx(int c, int t) {
     computational_[t].z ^= computational_[c].z;
 }
 
-void Tableau::applyX(int q) { computational_[q].r = !computational_[q].r; }
+void Tableau::applyX(int q) noexcept { computational_[q].r = !computational_[q].r; }
 
 void Tableau::applyS(int q) {
     hadamard_[q].r = phase_(hadamard_[q], computational_[q], 3);
@@ -139,7 +139,7 @@ void Tableau::applyS(int q) {
     hadamard_[q].z ^= computational_[q].z;
 }
 
-void Tableau::applyZ(int q) { hadamard_[q].r = !hadamard_[q].r; }
+void Tableau::applyZ(int q) noexcept { hadamard_[q].r = !hadamard_[q].r; }
 
 void Tableau::print() const {
     for (size_t j = 0; j < qubits_; ++j) {
@@ -175,7 +175,7 @@ void Tableau::print() const {
     std::cout << '\n';
 }
 
-void Tableau::swapBit_(BitRef a, BitRef b) {
+void Tableau::swapBit_(BitRef a, BitRef b) noexcept {
     const bool temp = a;
     a = b;
     b = temp;
@@ -191,10 +191,6 @@ std::int64_t Tableau::e_(const Generator& a, const Generator& b) {
 bool Tableau::phase_(const Generator& a, const Generator& b, int phaseRule) {
     const auto val =
         static_cast<std::uint64_t>(e_(a, b) + (a.r ? 2 : 0) + (b.r ? 2 : 0) + phaseRule) & 3U;
-    if (val % 2 == 1) {
-        throw std::runtime_error(
-            "Final phase came out to uneven numbers, meaning there has been a mistake");
-    }
-
+    assert(val % 2 == 0);  // NOLINT(misc-static-assert)
     return val == 2;
 }

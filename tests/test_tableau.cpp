@@ -835,7 +835,7 @@ TEST_CASE("e: ignores sign bits", "[tableau][private][e]") {
     CHECK(A::e(t, pauli("Y", true), pauli("Y", true)) == 4);
 }
 
-TEST_CASE("phase: sign of product for all signs and rules", "[tableau][private][phase]") {
+TEST_CASE("phase: sign of product for all signs and valid rules", "[tableau][private][phase]") {
     Tableau t(1);
     auto ab = GENERATE(table<std::string, std::string>({
         {"X", "Z"},
@@ -858,11 +858,8 @@ TEST_CASE("phase: sign of product for all signs and rules", "[tableau][private][
     int total = A::e(t, ga, gb) + 2 * ra + 2 * rb + rule;
     int mod = ((total % 4) + 4) % 4;
 
-    if (mod % 2 == 1) {
-        CHECK_THROWS_AS(A::phase(t, ga, gb, rule), std::runtime_error);
-    } else {
-        CHECK(A::phase(t, ga, gb, rule) == (mod == 2));
-    }
+    if (mod % 2 == 1) return;  // Odd phases violate phase_()'s precondition.
+    CHECK(A::phase(t, ga, gb, rule) == (mod == 2));
 }
 
 TEST_CASE("phase: hand-picked values", "[tableau][private][phase]") {
@@ -883,15 +880,6 @@ TEST_CASE("phase: hand-picked values", "[tableau][private][phase]") {
     CHECK(A::phase(t, pauli("XZ"), pauli("ZX"), 0) == false);
     // (XX)(ZZ) = (-iY)(-iY) = -YY
     CHECK(A::phase(t, pauli("XX"), pauli("ZZ"), 0) == true);
-}
-
-TEST_CASE("phase: throws on odd total", "[tableau][private][phase]") {
-    Tableau t(1);
-    CHECK_THROWS_AS(A::phase(t, pauli("X"), pauli("Z"), 0), std::runtime_error);
-    CHECK_THROWS_AS(A::phase(t, pauli("Z"), pauli("X"), 0), std::runtime_error);
-    CHECK_THROWS_AS(A::phase(t, pauli("Z"), pauli("Z"), 1), std::runtime_error);
-    CHECK_THROWS_AS(A::phase(t, pauli("I"), pauli("I"), 3), std::runtime_error);
-    CHECK_NOTHROW(A::phase(t, pauli("X"), pauli("Z"), 1));
 }
 
 TEST_CASE("collapse", "[tableau][private][collapse]") {
