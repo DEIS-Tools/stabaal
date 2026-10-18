@@ -1,4 +1,4 @@
-#include "tableau.hpp"
+#include "inverse_tableau.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -15,7 +15,7 @@
 
 using namespace stabaal;
 
-Tableau::Tableau(const QubitIdx num_qubits)
+InverseTableau::InverseTableau(const QubitIdx num_qubits)
     : computational_{num_qubits}, hadamard_{num_qubits}, num_qubits_{num_qubits} {
     for (std::size_t i{0}; i < num_qubits; ++i) {
         computational_.gens[i].SetZ(i);
@@ -23,12 +23,12 @@ Tableau::Tableau(const QubitIdx num_qubits)
     }
 }
 
-std::mt19937& Tableau::RandomEngine() {
+std::mt19937& InverseTableau::RandomEngine() {
     static thread_local std::mt19937 engine{std::random_device{}()};
     return engine;
 }
 
-void Tableau::Add() {
+void InverseTableau::Add() {
     ++num_qubits_;
     computational_.Add();
     hadamard_.Add();
@@ -38,7 +38,7 @@ void Tableau::Add() {
     hadamard_.gens[last].SetX(last);
 }
 
-void Tableau::CleanUp(const QubitIdx pivot, const PauliString& gen) noexcept {
+void InverseTableau::CleanUp(const QubitIdx pivot, const PauliString& gen) noexcept {
     // cx between pivot and all columns with x in the measured row.
     for (std::size_t i{static_cast<std::size_t>(pivot) + 1}; i < num_qubits_; ++i) {
         if (!gen.GetX(i)) continue;
@@ -62,6 +62,7 @@ void Tableau::CleanUp(const QubitIdx pivot, const PauliString& gen) noexcept {
                                    hadamard_.gens[j].GetZ(pivot) != hadamard_.gens[j].GetZ(i));
         }
     }
+
     if (!gen.GetZ(pivot)) return;
 
     // s^dagger applied to pivot
@@ -79,7 +80,7 @@ void Tableau::CleanUp(const QubitIdx pivot, const PauliString& gen) noexcept {
     }
 }
 
-void Tableau::Collapse(const QubitIdx pivot, const bool p) noexcept {
+void InverseTableau::Collapse(const QubitIdx pivot, const bool p) noexcept {
     // Apply X on the pivot when the measured outcome is 1 (p).
     for (std::size_t i{0}; i < num_qubits_; ++i) {
         computational_.gens[i].SwapXZ(pivot);
@@ -93,7 +94,7 @@ void Tableau::Collapse(const QubitIdx pivot, const bool p) noexcept {
     }
 }
 
-bool Tableau::RandomMeasurement(const QubitIdx q, const Basis b) {
+bool InverseTableau::RandomMeasurement(const QubitIdx q, const Basis b) {
     const auto& table{(b == Basis::kComputational) ? computational_ : hadamard_};
     const auto& gen{table.gens[q]};
     QubitIdx pivot{0};
@@ -104,23 +105,26 @@ bool Tableau::RandomMeasurement(const QubitIdx q, const Basis b) {
             break;
         }
     }
+
     CleanUp(pivot, gen);
     const bool p{std::bernoulli_distribution{0.5}(RandomEngine())};
     Collapse(pivot, p);
     return table.signs.Get(q);
 }
 
-bool Tableau::MeasureZ(const QubitIdx q) {
+bool InverseTableau::MeasureZ(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
+
     if (computational_.gens[q].AnyX()) {
         return RandomMeasurement(q, Basis::kComputational);
     }
+
     return computational_.signs.Get(q);
 }
 
-bool Tableau::MeasureX(const QubitIdx q) {
+bool InverseTableau::MeasureX(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
@@ -132,7 +136,7 @@ bool Tableau::MeasureX(const QubitIdx q) {
     return hadamard_.signs.Get(q);
 }
 
-void Tableau::ApplyH(const QubitIdx q) {
+void InverseTableau::ApplyH(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
@@ -143,7 +147,7 @@ void Tableau::ApplyH(const QubitIdx q) {
     hadamard_.signs.Set(q, sign);
 }
 
-void Tableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
+void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
     if (c >= num_qubits_ || t >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
@@ -157,7 +161,7 @@ void Tableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
         t, Phase(computational_phase, computational_.signs.Get(t), computational_.signs.Get(c), 0));
 }
 
-void Tableau::ApplyX(const QubitIdx q) {
+void InverseTableau::ApplyX(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
@@ -165,15 +169,16 @@ void Tableau::ApplyX(const QubitIdx q) {
     computational_.signs.Set(q, !computational_.signs.Get(q));
 }
 
-void Tableau::ApplyS(const QubitIdx q) {
+void InverseTableau::ApplyS(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
+
     const auto exponent{hadamard_.gens[q].XorWithPhase(computational_.gens[q])};
     hadamard_.signs.Set(q, Phase(exponent, hadamard_.signs.Get(q), computational_.signs.Get(q), 3));
 }
 
-void Tableau::ApplyZ(const QubitIdx q) {
+void InverseTableau::ApplyZ(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
@@ -181,11 +186,11 @@ void Tableau::ApplyZ(const QubitIdx q) {
     hadamard_.signs.Set(q, !hadamard_.signs.Get(q));
 }
 
-std::size_t Tableau::MemoryUsage() const noexcept {
+std::size_t InverseTableau::MemoryUsage() const noexcept {
     return sizeof(*this) + computational_.AllocatedBytes() + hadamard_.AllocatedBytes();
 }
 
-void Tableau::Print() const {
+void InverseTableau::Print() const {
     for (std::size_t j{0}; j < num_qubits_; ++j) {
         std::cout << (j == 0 ? "\n    | " : "") << "x" << (j == num_qubits_ - 1 ? " | " : " ");
     }
@@ -225,8 +230,8 @@ void Tableau::Print() const {
     std::cout << '\n';
 }
 
-bool Tableau::Phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
-                    const std::uint8_t phase_rule) noexcept {
+bool InverseTableau::Phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
+                           const std::uint8_t phase_rule) noexcept {
     assert(phase_rule < 4);
     const auto phase{static_cast<std::uint64_t>(exponent + phase_rule) & 3U};
     assert(phase % 2 == 0);

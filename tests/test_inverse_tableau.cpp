@@ -13,7 +13,7 @@
 #include <vector>
 
 #include "basis_table.hpp"
-#include "tableau.hpp"
+#include "inverse_tableau.hpp"
 #include "types.hpp"
 
 namespace stabaal {
@@ -135,12 +135,13 @@ struct StateVector {
     }
 };
 
-TEST_CASE("Tableau gates and measurements agree with state-vector simulation", "[tableau]") {
+TEST_CASE("InverseTableau gates and measurements agree with state-vector simulation",
+          "[inverse_tableau]") {
     const QubitIdx initial_qubits{GENERATE(QubitIdx{1}, QubitIdx{2}, QubitIdx{3}, QubitIdx{4})};
     std::mt19937 choices{1234};
     for (std::uint32_t trial{0}; trial < 16; ++trial) {
         auto n{initial_qubits};
-        Tableau tableau{n};
+        InverseTableau tableau{n};
         StateVector reference{n};
         for (std::uint32_t step{0}; step < 48; ++step) {
             if (step == 24) {
@@ -186,9 +187,9 @@ TEST_CASE("Tableau gates and measurements agree with state-vector simulation", "
     }
 }
 
-TEST_CASE("New qubits start in zero", "[tableau][add]") {
+TEST_CASE("New qubits start in zero", "[inverse_tableau][add]") {
     const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{4})};
-    Tableau t{n};
+    InverseTableau t{n};
     for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(t.MeasureZ(q));
     t.Add();
     CHECK_FALSE(t.MeasureZ(n));
@@ -196,11 +197,12 @@ TEST_CASE("New qubits start in zero", "[tableau][add]") {
     CHECK(t.MeasureZ(n));
 }
 
-TEST_CASE("X and Z measurements sample both outcomes and remain repeatable", "[tableau][measure]") {
+TEST_CASE("X and Z measurements sample both outcomes and remain repeatable",
+          "[inverse_tableau][measure]") {
     const bool x_basis{GENERATE(false, true)};
     std::set<bool> seen{};
     for (std::uint32_t trial{0}; trial < 64; ++trial) {
-        Tableau t{1};
+        InverseTableau t{1};
         if (!x_basis) t.ApplyH(0);
         const bool result{x_basis ? t.MeasureX(0) : t.MeasureZ(0)};
         seen.insert(result);
@@ -209,12 +211,12 @@ TEST_CASE("X and Z measurements sample both outcomes and remain repeatable", "[t
     CHECK(seen.size() == 2);
 }
 
-TEST_CASE("Bell state measurements remain correlated", "[tableau][entangle]") {
+TEST_CASE("Bell state measurements remain correlated", "[inverse_tableau][entangle]") {
     const bool x_basis{GENERATE(false, true)};
     const bool reverse_order{GENERATE(false, true)};
     std::set<bool> seen{};
     for (std::uint32_t trial{0}; trial < 64; ++trial) {
-        Tableau t{2};
+        InverseTableau t{2};
         t.ApplyH(0);
         t.ApplyCx(0, 1);
         const QubitIdx first{reverse_order ? 1U : 0U};
@@ -226,9 +228,9 @@ TEST_CASE("Bell state measurements remain correlated", "[tableau][entangle]") {
     CHECK(seen.size() == 2);
 }
 
-TEST_CASE("Print", "[tableau][Print]") {
+TEST_CASE("Print", "[inverse_tableau][Print]") {
     SECTION("fresh 1-qubit tableau") {
-        const Tableau t{1};
+        const InverseTableau t{1};
         CoutCapture cap{};
         t.Print();
         CHECK(cap.ss.str() ==
@@ -238,7 +240,7 @@ TEST_CASE("Print", "[tableau][Print]") {
               "\n");
     }
     SECTION("fresh 2-qubit tableau") {
-        const Tableau t{2};
+        const InverseTableau t{2};
         CoutCapture cap{};
         t.Print();
         CHECK(cap.ss.str() ==
@@ -250,7 +252,7 @@ TEST_CASE("Print", "[tableau][Print]") {
               "\n");
     }
     SECTION("sign column after X") {
-        Tableau t{1};
+        InverseTableau t{1};
         t.ApplyX(0);
         CoutCapture cap{};
         t.Print();
@@ -261,7 +263,7 @@ TEST_CASE("Print", "[tableau][Print]") {
               "\n");
     }
     SECTION("rows swapped after H") {
-        Tableau t{1};
+        InverseTableau t{1};
         t.ApplyH(0);
         CoutCapture cap{};
         t.Print();
@@ -273,11 +275,11 @@ TEST_CASE("Print", "[tableau][Print]") {
     }
 }
 
-TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[tableau][signs]") {
+TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[inverse_tableau][signs]") {
     const QubitIdx n{
         GENERATE(QubitIdx{1}, QubitIdx{63}, QubitIdx{64}, QubitIdx{65}, QubitIdx{129})};
     const auto q{n - 1};
-    Tableau t{n};
+    InverseTableau t{n};
     t.ApplyX(q);
     t.ApplyH(q);
     CHECK(t.MeasureX(q));
@@ -433,9 +435,10 @@ TEST_CASE("e: is additive over tensor products", "[pauli][phase]") {
     CHECK(Pauli(a).XorWithPhase(Pauli(b)) == sum);
 }
 
-TEST_CASE("Tableau rejects invalid gate and measurement indices", "[tableau][bounds]") {
+TEST_CASE("InverseTableau rejects invalid gate and measurement indices",
+          "[inverse_tableau][bounds]") {
     const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{65})};
-    Tableau tableau{n};
+    InverseTableau tableau{n};
     for (const auto q : {n, n + 1, std::numeric_limits<QubitIdx>::max()}) {
         CHECK_THROWS_AS(tableau.ApplyH(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.ApplyX(q), std::out_of_range);

@@ -1,5 +1,5 @@
-#ifndef STABAAL_TABLEAU_HPP
-#define STABAAL_TABLEAU_HPP
+#ifndef STABAAL_INVERSE_TABLEAU_HPP
+#define STABAAL_INVERSE_TABLEAU_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -14,7 +14,7 @@
 
 namespace stabaal {
 
-class Tableau {
+class InverseTableau {
    public:
     enum class Basis : std::uint8_t {
         kComputational,
@@ -22,7 +22,7 @@ class Tableau {
         kImaginary,
     };
 
-    explicit Tableau(QubitIdx num_qubits);
+    explicit InverseTableau(QubitIdx num_qubits);
 
     void Add();
 

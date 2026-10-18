@@ -14,7 +14,7 @@
 #include <system_error>
 #include <vector>
 
-#include "tableau.hpp"
+#include "inverse_tableau.hpp"
 #include "types.hpp"
 
 namespace {
@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         std::uint32_t checksum{0};
         std::size_t memory_bytes{0};
         for (std::uint32_t repeat{0}; repeat < repeats; ++repeat) {
-            stabaal::Tableau tableau{qubits};
+            stabaal::InverseTableau tableau{qubits};
             const auto start{std::chrono::steady_clock::now()};
             for (const auto& gate : circuit) {
                 switch (gate.kind) {

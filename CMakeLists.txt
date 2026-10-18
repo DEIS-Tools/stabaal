@@ -12,7 +12,7 @@ target_compile_features(stabaal PUBLIC cxx_std_20)
 
 target_include_directories(stabaal PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
-option(BUILD_BENCHMARKS "Build the tableau benchmark" OFF)
+option(BUILD_BENCHMARKS "Build the benchmark" OFF)
 if(BUILD_BENCHMARKS)
     add_executable(stabaal_bench benchmarks/bench.cpp)
     target_link_libraries(stabaal_bench PRIVATE stabaal)
@@ -29,7 +29,7 @@ if(BUILD_TESTING)
     )
     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(stabaal_tests tests/test_tableau.cpp tests/test_dynamic_bitset.cpp)
+    add_executable(stabaal_tests tests/test_inverse_tableau.cpp tests/test_dynamic_bitset.cpp)
     target_link_libraries(stabaal_tests PRIVATE stabaal Catch2::Catch2WithMain)
 
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
