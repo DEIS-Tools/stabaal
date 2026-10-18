@@ -2,11 +2,14 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <complex>
+#include <cstddef>
+#include <cstdint>
 #include <set>
 #include <stdexcept>
 #include <string>
 
 #include "tableau.hpp"
+#include "types.hpp"
 
 namespace stabaal {
 
@@ -16,18 +19,20 @@ namespace stabaal {
 
 // Friend of Tableau: gives the tests access to private state and helpers.
 struct TableauTestAccess {
-    static void Seed(unsigned int value) { Tableau::RandomEngine().seed(value); }
+    static void Seed(std::uint32_t value) { Tableau::RandomEngine().seed(value); }
     static BasisTable& Comp(Tableau& t) { return t.computational_; }
     static BasisTable& Had(Tableau& t) { return t.hadamard_; }
-    static std::uint64_t Qubits(Tableau& t) { return t.num_qubits_; }
+    static QubitIdx Qubits(Tableau& t) { return t.num_qubits_; }
 
-    static void CleanUp(Tableau& t, int pivot, const Generator& gen) { t.CleanUp(pivot, gen); }
-    static void Collapse(Tableau& t, int pivot, bool p) { t.Collapse(pivot, p); }
-    static bool RandomMeasurement(Tableau& t, int q, Tableau::Basis b) {
+    static void CleanUp(Tableau& t, QubitIdx pivot, const PauliString& gen) {
+        t.CleanUp(pivot, gen);
+    }
+    static void Collapse(Tableau& t, QubitIdx pivot, bool p) { t.Collapse(pivot, p); }
+    static bool RandomMeasurement(Tableau& t, QubitIdx q, Tableau::Basis b) {
         return t.RandomMeasurement(q, b);
     }
-    static std::int64_t E(Tableau& t, Generator a, Generator b) { return t.E(a, b); }
-    static bool Phase(Tableau& t, Generator a, Generator b, int rule) {
+    static std::int64_t E(Tableau& t, PauliString a, PauliString b) { return t.E(a, b); }
+    static bool Phase(Tableau& t, PauliString a, PauliString b, std::uint8_t rule) {
         return t.Phase(a, b, rule);
     }
     static void SwapBit(Tableau& t, BitRef a, BitRef b) { t.SwapBit(a, b); }
@@ -36,9 +41,9 @@ using A = TableauTestAccess;
 
 // Builds a generator from a Pauli string, e.g. Pauli("XIZY", true) = -X⊗I⊗Z⊗Y.
 // Character i is the Pauli acting on qubit i.
-static Generator Pauli(const std::string& s, bool neg = false) {
-    Generator g(s.size());
-    for (size_t i = 0; i < s.size(); ++i) {
+static PauliString Pauli(const std::string& s, bool neg = false) {
+    PauliString g(static_cast<QubitIdx>(s.size()));
+    for (std::size_t i = 0; i < s.size(); ++i) {
         switch (s[i]) {
             case 'I':
                 break;
@@ -56,15 +61,15 @@ static Generator Pauli(const std::string& s, bool neg = false) {
                 throw std::invalid_argument("bad pauli char");
         }
     }
-    g.r_ = neg;
+    g.sign_ = neg;
     return g;
 }
 
 // Renders a generator as a signed Pauli string, e.g. "-XIZY".
-static std::string Str(const Generator& g) {
-    std::string s = g.r_ ? "-" : "+";
+static std::string Str(const PauliString& g) {
+    std::string s = g.sign_ ? "-" : "+";
     auto n = std::max(g.x_.size(), g.z_.size());
-    for (size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         bool x = i < g.x_.size() && g.x_[i];
         bool z = i < g.z_.size() && g.z_[i];
         s += x ? (z ? 'Y' : 'X') : (z ? 'Z' : 'I');
@@ -72,7 +77,7 @@ static std::string Str(const Generator& g) {
     return s;
 }
 
-static bool Anticommute(const Generator& a, const Generator& b) {
+static bool Anticommute(const PauliString& a, const PauliString& b) {
     return ((a.x_ & b.z_).count() + (a.z_ & b.x_).count()) % 2 == 1;
 }
 
@@ -84,14 +89,14 @@ static void CheckSymplectic(Tableau& t) {
     auto& had = A::Had(t);
     REQUIRE(comp.size() == n);
     REQUIRE(had.size() == n);
-    for (size_t i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         REQUIRE(comp[i].x_.size() == n);
         REQUIRE(comp[i].z_.size() == n);
         REQUIRE(had[i].x_.size() == n);
         REQUIRE(had[i].z_.size() == n);
     }
-    for (size_t i = 0; i < n; ++i) {
-        for (size_t j = 0; j < n; ++j) {
+    for (std::size_t i = 0; i < n; ++i) {
+        for (std::size_t j = 0; j < n; ++j) {
             CHECK(Anticommute(comp[i], had[j]) == (i == j));
             CHECK_FALSE(Anticommute(comp[i], comp[j]));
             CHECK_FALSE(Anticommute(had[i], had[j]));
@@ -102,9 +107,9 @@ static void CheckSymplectic(Tableau& t) {
 // Runs `f(seed)` for a range of seeds and collects the boolean outcomes.
 // Each callback seeds the C++ engine through the test helper.
 template <class F>
-static std::set<bool> Outcomes(F f, int seeds = 64) {
+static std::set<bool> Outcomes(F f, std::uint32_t seeds = 64) {
     std::set<bool> seen;
-    for (int s = 0; s < seeds; ++s) seen.insert(f(s));
+    for (std::uint32_t s = 0; s < seeds; ++s) seen.insert(f(s));
     return seen;
 }
 
@@ -141,13 +146,13 @@ static Mat Multiply(const Mat& a, const Mat& b) {
 // ===========================================================================
 
 TEST_CASE("Constructor initialises |0...0> tableau", "[tableau][ctor]") {
-    auto n = GENERATE(1, 2, 5);
+    QubitIdx n = GENERATE(1, 2, 5);
     Tableau t(n);
 
-    REQUIRE(A::Qubits(t) == static_cast<std::uint64_t>(n));
+    REQUIRE(A::Qubits(t) == n);
     CheckSymplectic(t);
 
-    for (int i = 0; i < n; ++i) {
+    for (std::size_t i = 0; i < n; ++i) {
         std::string zi(n, 'I'), xi(n, 'I');
         zi[i] = 'Z';
         xi[i] = 'X';
@@ -164,22 +169,22 @@ TEST_CASE("Constructor with zero qubits produces empty tableau", "[tableau][ctor
 }
 
 TEST_CASE("MeasureZ on fresh state is deterministically 0", "[tableau][measure]") {
-    auto n = GENERATE(1, 3);
+    QubitIdx n = GENERATE(1, 3);
     Tableau t(n);
-    for (int q = 0; q < n; ++q) {
+    for (QubitIdx q = 0; q < n; ++q) {
         CHECK(t.MeasureZ(q) == false);
         CHECK(t.MeasureZ(q) == false);
     }
     // Deterministic measurement must not change the tableau.
     Tableau fresh(n);
-    for (int q = 0; q < n; ++q) {
+    for (QubitIdx q = 0; q < n; ++q) {
         CHECK(Str(A::Comp(t)[q]) == Str(A::Comp(fresh)[q]));
         CHECK(Str(A::Had(t)[q]) == Str(A::Had(fresh)[q]));
     }
 }
 
 TEST_CASE("MeasureX on fresh state is random", "[tableau][measure]") {
-    auto seen = Outcomes([](int s) {
+    auto seen = Outcomes([](std::uint32_t s) {
         Tableau t(1);
         A::Seed(s);
         return t.MeasureX(0);
@@ -188,7 +193,7 @@ TEST_CASE("MeasureX on fresh state is random", "[tableau][measure]") {
 }
 
 TEST_CASE("Repeated measurement returns the same outcome", "[tableau][measure]") {
-    for (int s = 0; s < 32; ++s) {
+    for (std::uint32_t s = 0; s < 32; ++s) {
         SECTION("X basis, seed " + std::to_string(s)) {
             Tableau t(2);
             A::Seed(s);
@@ -210,7 +215,7 @@ TEST_CASE("Repeated measurement returns the same outcome", "[tableau][measure]")
 
 TEST_CASE("Repeated measurement is consistent when the measured row has a negative sign",
           "[tableau][measure]") {
-    for (int s = 0; s < 32; ++s) {
+    for (std::uint32_t s = 0; s < 32; ++s) {
         SECTION("Z basis, row -X, seed " + std::to_string(s)) {
             Tableau t(1);
             t.ApplyZ(0);
@@ -232,7 +237,7 @@ TEST_CASE("Repeated measurement is consistent when the measured row has a negati
 }
 
 TEST_CASE("Measuring X then Z re-randomises Z", "[tableau][measure]") {
-    auto seen = Outcomes([](int s) {
+    auto seen = Outcomes([](std::uint32_t s) {
         Tableau t(1);
         A::Seed(s);
         t.MeasureX(0);
@@ -244,7 +249,7 @@ TEST_CASE("Measuring X then Z re-randomises Z", "[tableau][measure]") {
 }
 
 TEST_CASE("Measuring one qubit does not disturb an independent qubit", "[tableau][measure]") {
-    for (int s = 0; s < 16; ++s) {
+    for (std::uint32_t s = 0; s < 16; ++s) {
         Tableau t(3);
         t.ApplyX(1);
         t.ApplyH(0);
@@ -321,7 +326,7 @@ TEST_CASE("ApplyZ", "[tableau][gate][z]") {
     }
     SECTION("only the targeted qubit is affected") {
         Tableau t(3);
-        for (int q = 0; q < 3; ++q) t.ApplyH(q);
+        for (QubitIdx q = 0; q < 3; ++q) t.ApplyH(q);
         t.ApplyZ(1);
         CHECK(t.MeasureX(0) == false);
         CHECK(t.MeasureX(1) == true);
@@ -338,7 +343,7 @@ TEST_CASE("ApplyH", "[tableau][gate][h]") {
         CHECK(t.MeasureX(0) == false);
     }
     SECTION("H|0> measured in Z is random") {
-        auto seen = Outcomes([](int s) {
+        auto seen = Outcomes([](std::uint32_t s) {
             Tableau t(1);
             t.ApplyH(0);
             A::Seed(s);
@@ -397,7 +402,7 @@ TEST_CASE("ApplyS", "[tableau][gate][s]") {
         t.ApplyH(0);
         t.ApplyS(0);
         CHECK(Str(A::Had(t)[0]) == "+Y");
-        auto seen = Outcomes([](int s) {
+        auto seen = Outcomes([](std::uint32_t s) {
             Tableau u(1);
             u.ApplyH(0);
             u.ApplyS(0);
@@ -442,7 +447,7 @@ TEST_CASE("ApplyS", "[tableau][gate][s]") {
         CheckSymplectic(t);
     }
     SECTION("measuring |+i> in X twice is consistent") {
-        for (int s = 0; s < 16; ++s) {
+        for (std::uint32_t s = 0; s < 16; ++s) {
             Tableau t(1);
             t.ApplyH(0);
             t.ApplyS(0);
@@ -483,13 +488,13 @@ TEST_CASE("ApplyCx", "[tableau][gate][cx]") {
         t.ApplyH(1);
         t.ApplyZ(1);
         std::vector<std::string> before;
-        for (int i = 0; i < 2; ++i) {
+        for (std::size_t i = 0; i < 2; ++i) {
             before.push_back(Str(A::Comp(t)[i]));
             before.push_back(Str(A::Had(t)[i]));
         }
         t.ApplyCx(0, 1);
         t.ApplyCx(0, 1);
-        for (int i = 0; i < 2; ++i) {
+        for (std::size_t i = 0; i < 2; ++i) {
             CHECK(Str(A::Comp(t)[i]) == before[2 * i]);
             CHECK(Str(A::Had(t)[i]) == before[2 * i + 1]);
         }
@@ -531,7 +536,7 @@ TEST_CASE("ApplyCx", "[tableau][gate][cx]") {
 
 TEST_CASE("Bell state correlations", "[tableau][gate][cx][entangle]") {
     SECTION("Z outcomes always equal and both occur") {
-        auto seen = Outcomes([](int s) {
+        auto seen = Outcomes([](std::uint32_t s) {
             Tableau t(2);
             t.ApplyH(0);
             t.ApplyCx(0, 1);
@@ -544,7 +549,7 @@ TEST_CASE("Bell state correlations", "[tableau][gate][cx][entangle]") {
         CHECK(seen.size() == 2);
     }
     SECTION("measuring the target first also correlates") {
-        for (int s = 0; s < 32; ++s) {
+        for (std::uint32_t s = 0; s < 32; ++s) {
             Tableau t(2);
             t.ApplyH(0);
             t.ApplyCx(0, 1);
@@ -554,7 +559,7 @@ TEST_CASE("Bell state correlations", "[tableau][gate][cx][entangle]") {
         }
     }
     SECTION("X outcomes always equal and both occur") {
-        auto seen = Outcomes([](int s) {
+        auto seen = Outcomes([](std::uint32_t s) {
             Tableau t(2);
             t.ApplyH(0);
             t.ApplyCx(0, 1);
@@ -567,7 +572,7 @@ TEST_CASE("Bell state correlations", "[tableau][gate][cx][entangle]") {
         CHECK(seen.size() == 2);
     }
     SECTION("|Phi-> (Z on control) gives anti-correlated X outcomes") {
-        for (int s = 0; s < 32; ++s) {
+        for (std::uint32_t s = 0; s < 32; ++s) {
             Tableau t(2);
             t.ApplyH(0);
             t.ApplyZ(0);
@@ -578,7 +583,7 @@ TEST_CASE("Bell state correlations", "[tableau][gate][cx][entangle]") {
         }
     }
     SECTION("|Psi+> (X on target) gives anti-correlated Z outcomes") {
-        for (int s = 0; s < 32; ++s) {
+        for (std::uint32_t s = 0; s < 32; ++s) {
             Tableau t(2);
             t.ApplyH(0);
             t.ApplyCx(0, 1);
@@ -591,7 +596,7 @@ TEST_CASE("Bell state correlations", "[tableau][gate][cx][entangle]") {
 }
 
 TEST_CASE("GHZ state correlations", "[tableau][gate][cx][entangle]") {
-    auto seen = Outcomes([](int s) {
+    auto seen = Outcomes([](std::uint32_t s) {
         Tableau t(3);
         t.ApplyH(0);
         t.ApplyCx(0, 1);
@@ -636,9 +641,9 @@ TEST_CASE("Add appends a fresh |0> qubit", "[tableau][Add]") {
     }
     SECTION("repeated Add from zero qubits") {
         Tableau t(0);
-        for (int n = 1; n <= 4; ++n) {
+        for (QubitIdx n = 1; n <= 4; ++n) {
             t.Add();
-            REQUIRE(A::Qubits(t) == static_cast<std::uint64_t>(n));
+            REQUIRE(A::Qubits(t) == n);
             CheckSymplectic(t);
         }
     }
@@ -719,19 +724,19 @@ TEST_CASE("Print", "[tableau][Print]") {
 TEST_CASE("SwapBit", "[tableau][private][SwapBit]") {
     Tableau t(1);
     SECTION("differing bits in two bitsets") {
-        Generator g = Pauli("XI");
+        PauliString g = Pauli("XI");
         A::SwapBit(t, g.x_[0], g.z_[0]);
         CHECK(Str(g) == "+ZI");
         A::SwapBit(t, g.x_[0], g.z_[0]);
         CHECK(Str(g) == "+XI");
     }
     SECTION("both bits 0") {
-        Generator g = Pauli("IZ");
+        PauliString g = Pauli("IZ");
         A::SwapBit(t, g.x_[0], g.z_[0]);
         CHECK(Str(g) == "+IZ");
     }
     SECTION("both bits 1") {
-        Generator g = Pauli("YZ");
+        PauliString g = Pauli("YZ");
         A::SwapBit(t, g.x_[0], g.z_[0]);
         CHECK(Str(g) == "+YZ");
     }
@@ -752,7 +757,7 @@ TEST_CASE("SwapBit", "[tableau][private][SwapBit]") {
         CHECK(b[1] == false);
     }
     SECTION("does not touch the sign or other bits") {
-        Generator g = Pauli("XZY", true);
+        PauliString g = Pauli("XZY", true);
         A::SwapBit(t, g.x_[1], g.z_[1]);
         CHECK(Str(g) == "-XXY");
     }
@@ -763,7 +768,7 @@ TEST_CASE("e: single-qubit table", "[tableau][private][e]") {
     struct Case {
         const char* a;
         const char* b;
-        int e;
+        std::int64_t e;
     };
     auto c = GENERATE(values<Case>({
         {"I", "I", 0},
@@ -793,18 +798,18 @@ TEST_CASE("e: matches Pauli matrix multiplication", "[tableau][private][e]") {
     for (char a : std::string("IXYZ")) {
         for (char b : std::string("IXYZ")) {
             CAPTURE(a, b);
-            Generator ga = Pauli(std::string(1, a));
-            Generator gb = Pauli(std::string(1, b));
-            Generator prod(1);
+            PauliString ga = Pauli(std::string(1, a));
+            PauliString gb = Pauli(std::string(1, b));
+            PauliString prod(1);
             prod.x_ = ga.x_ ^ gb.x_;
             prod.z_ = ga.z_ ^ gb.z_;
             char p = Str(prod)[1];
 
-            int e = ((A::E(t, ga, gb) % 4) + 4) % 4;
+            std::int64_t e = ((A::E(t, ga, gb) % 4) + 4) % 4;
             std::complex<double> factor = std::pow(imaginary_unit, e);
             Mat lhs = Multiply(PauliMatrix(a), PauliMatrix(b));
             Mat rhs = PauliMatrix(p);
-            for (int k = 0; k < 4; ++k) {
+            for (std::size_t k = 0; k < 4; ++k) {
                 CHECK(std::abs(lhs[k] - factor * rhs[k]) < 1e-12);
             }
         }
@@ -821,8 +826,8 @@ TEST_CASE("e: is additive over tensor products", "[tableau][private][e]") {
         {"YIY", "IYI"},
     }));
     auto [a, b] = pair;
-    int sum = 0;
-    for (size_t i = 0; i < a.size(); ++i) {
+    std::int64_t sum = 0;
+    for (std::size_t i = 0; i < a.size(); ++i) {
         sum += A::E(t, Pauli(std::string(1, a[i])), Pauli(std::string(1, b[i])));
     }
     CAPTURE(a, b);
@@ -850,13 +855,13 @@ TEST_CASE("phase: sign of product for all signs and valid rules", "[tableau][pri
     }));
     auto ra = GENERATE(false, true);
     auto rb = GENERATE(false, true);
-    auto rule = GENERATE(0, 1, 2, 3);
+    std::uint8_t rule = GENERATE(0, 1, 2, 3);
     auto [a, b] = ab;
     CAPTURE(a, b, ra, rb, rule);
 
-    Generator ga = Pauli(a, ra), gb = Pauli(b, rb);
-    int total = A::E(t, ga, gb) + 2 * ra + 2 * rb + rule;
-    int mod = ((total % 4) + 4) % 4;
+    PauliString ga = Pauli(a, ra), gb = Pauli(b, rb);
+    std::int64_t total = A::E(t, ga, gb) + 2 * ra + 2 * rb + rule;
+    std::int64_t mod = ((total % 4) + 4) % 4;
 
     if (mod % 2 == 1) return;  // Odd phases violate Phase()'s precondition.
     CHECK(A::Phase(t, ga, gb, rule) == (mod == 2));
@@ -994,9 +999,11 @@ TEST_CASE("CleanUp", "[tableau][private][CleanUp]") {
         Tableau t(2);
         t.ApplyH(0);
         std::vector<std::string> before;
-        for (int i = 0; i < 2; ++i) before.push_back(Str(A::Comp(t)[i]) + Str(A::Had(t)[i]));
+        for (std::size_t i = 0; i < 2; ++i)
+            before.push_back(Str(A::Comp(t)[i]) + Str(A::Had(t)[i]));
         A::CleanUp(t, 0, A::Comp(t)[0]);
-        for (int i = 0; i < 2; ++i) CHECK(Str(A::Comp(t)[i]) + Str(A::Had(t)[i]) == before[i]);
+        for (std::size_t i = 0; i < 2; ++i)
+            CHECK(Str(A::Comp(t)[i]) + Str(A::Had(t)[i]) == before[i]);
     }
     SECTION("Y on pivot is rotated to X in the table (S-dagger on column)") {
         Tableau t(1);
@@ -1021,13 +1028,13 @@ TEST_CASE("CleanUp", "[tableau][private][CleanUp]") {
 
 TEST_CASE("RandomMeasurement", "[tableau][private][RandomMeasurement]") {
     SECTION("computational basis on |+>") {
-        auto seen = Outcomes([](int s) {
+        auto seen = Outcomes([](std::uint32_t s) {
             Tableau t(1);
             t.ApplyH(0);
             A::Seed(s);
             bool p = A::RandomMeasurement(t, 0, Tableau::Basis::kComputational);
             CHECK(A::Comp(t)[0].x_.none());
-            CHECK(A::Comp(t)[0].r_ == p);
+            CHECK(A::Comp(t)[0].sign_ == p);
             CHECK(t.MeasureZ(0) == p);
             CheckSymplectic(t);
             return p;
@@ -1035,12 +1042,12 @@ TEST_CASE("RandomMeasurement", "[tableau][private][RandomMeasurement]") {
         CHECK(seen.size() == 2);
     }
     SECTION("hadamard basis on |0>") {
-        auto seen = Outcomes([](int s) {
+        auto seen = Outcomes([](std::uint32_t s) {
             Tableau t(1);
             A::Seed(s);
             bool p = A::RandomMeasurement(t, 0, Tableau::Basis::kHadamard);
             CHECK(A::Had(t)[0].x_.none());
-            CHECK(A::Had(t)[0].r_ == p);
+            CHECK(A::Had(t)[0].sign_ == p);
             CHECK(t.MeasureX(0) == p);
             CheckSymplectic(t);
             return p;
@@ -1048,7 +1055,7 @@ TEST_CASE("RandomMeasurement", "[tableau][private][RandomMeasurement]") {
         CHECK(seen.size() == 2);
     }
     SECTION("multi-X row: pivot is first X, other qubit untouched") {
-        for (int s = 0; s < 16; ++s) {
+        for (std::uint32_t s = 0; s < 16; ++s) {
             // State |++> written as H0 H1 CX01: Z1 row = X0X1.
             Tableau t(2);
             A::Comp(t)[0] = Pauli("XI");
@@ -1058,7 +1065,7 @@ TEST_CASE("RandomMeasurement", "[tableau][private][RandomMeasurement]") {
             A::Seed(s);
             bool p = A::RandomMeasurement(t, 1, Tableau::Basis::kComputational);
             CHECK(A::Comp(t)[1].x_.none());
-            CHECK(A::Comp(t)[1].r_ == p);
+            CHECK(A::Comp(t)[1].sign_ == p);
             CHECK(t.MeasureZ(1) == p);
             // Qubit 0 is still |+>.
             CHECK(t.MeasureX(0) == false);
@@ -1066,26 +1073,26 @@ TEST_CASE("RandomMeasurement", "[tableau][private][RandomMeasurement]") {
         }
     }
     SECTION("Y row on measured qubit") {
-        for (int s = 0; s < 16; ++s) {
+        for (std::uint32_t s = 0; s < 16; ++s) {
             Tableau t(1);
             t.ApplyH(0);
             t.ApplyS(0);  // had row = +Y
             A::Seed(s);
             bool p = A::RandomMeasurement(t, 0, Tableau::Basis::kHadamard);
             CHECK(A::Had(t)[0].x_.none());
-            CHECK(A::Had(t)[0].r_ == p);
+            CHECK(A::Had(t)[0].sign_ == p);
             CheckSymplectic(t);
         }
     }
     SECTION("negative-sign row: returned outcome matches the collapsed row") {
-        auto seen = Outcomes([](int s) {
+        auto seen = Outcomes([](std::uint32_t s) {
             Tableau t(1);
             t.ApplyZ(0);
             t.ApplyH(0);  // comp row = -X
             A::Seed(s);
             bool p = A::RandomMeasurement(t, 0, Tableau::Basis::kComputational);
             CHECK(A::Comp(t)[0].x_.none());
-            CHECK(A::Comp(t)[0].r_ == p);
+            CHECK(A::Comp(t)[0].sign_ == p);
             return p;
         });
         CHECK(seen.size() == 2);

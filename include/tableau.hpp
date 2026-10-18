@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "pauli_string.hpp"
+#include "types.hpp"
 
 namespace stabaal {
 using BitRef = boost::dynamic_bitset<>::reference;
@@ -22,18 +23,18 @@ class Tableau {
         kImaginary,
     };
 
-    explicit Tableau(int num_qubits);
+    explicit Tableau(QubitIdx num_qubits);
 
     void Add();
 
-    bool MeasureZ(int q);
-    bool MeasureX(int q);
+    bool MeasureZ(QubitIdx q);
+    bool MeasureX(QubitIdx q);
 
-    void ApplyH(int q);
-    void ApplyCx(int c, int t);
-    void ApplyX(int q) noexcept;
-    void ApplyS(int q);
-    void ApplyZ(int q) noexcept;
+    void ApplyH(QubitIdx q);
+    void ApplyCx(QubitIdx c, QubitIdx t);
+    void ApplyX(QubitIdx q) noexcept;
+    void ApplyS(QubitIdx q);
+    void ApplyZ(QubitIdx q) noexcept;
 
     void Print() const;
 
@@ -44,14 +45,14 @@ class Tableau {
 
     BasisTable computational_;
     BasisTable hadamard_;
-    std::uint64_t num_qubits_;
+    QubitIdx num_qubits_;
 
-    void CleanUp(int pivot, const PauliString& gen) noexcept;
-    void Collapse(int pivot, bool p) noexcept;
-    bool RandomMeasurement(int q, Basis b);
+    void CleanUp(QubitIdx pivot, const PauliString& gen) noexcept;
+    void Collapse(QubitIdx pivot, bool p) noexcept;
+    bool RandomMeasurement(QubitIdx q, Basis b);
 
     static std::int64_t E(const PauliString& a, const PauliString& b);
-    static bool Phase(const PauliString& a, const PauliString& b, int phase_rule);
+    static bool Phase(const PauliString& a, const PauliString& b, std::uint8_t phase_rule);
 
     static void SwapBit(BitRef a, BitRef b) noexcept;
 };

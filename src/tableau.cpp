@@ -9,14 +9,15 @@
 #include <string>
 
 #include "pauli_string.hpp"
+#include "types.hpp"
 
 using namespace stabaal;
 
-Tableau::Tableau(int num_qubits)
+Tableau::Tableau(QubitIdx num_qubits)
     : computational_(num_qubits, PauliString(num_qubits)),
       hadamard_(num_qubits, PauliString(num_qubits)),
       num_qubits_(num_qubits) {
-    for (auto i = 0; i < num_qubits; ++i) {
+    for (std::size_t i = 0; i < num_qubits; ++i) {
         computational_[i].z_[i] = true;
         hadamard_[i].x_[i] = true;
     }
@@ -29,15 +30,14 @@ std::mt19937& Tableau::RandomEngine() {
 
 void Tableau::Add() {
     ++num_qubits_;
-
     for (auto& gen : computational_) {
-        gen.x_.push_back(false);
-        gen.z_.push_back(false);
+        gen.AddI();
     }
+
     for (auto& gen : hadamard_) {
-        gen.x_.push_back(false);
-        gen.z_.push_back(false);
+        gen.AddI();
     }
+
     computational_.emplace_back(num_qubits_);
     hadamard_.emplace_back(num_qubits_);
 
@@ -46,12 +46,12 @@ void Tableau::Add() {
     hadamard_[last].x_[last] = true;
 }
 
-void Tableau::CleanUp(int pivot, const PauliString& gen) noexcept {
+void Tableau::CleanUp(QubitIdx pivot, const PauliString& gen) noexcept {
     // cx between pivot and all columns with x in the measured row.
-    for (auto i = pivot + 1; i < num_qubits_; ++i) {
+    for (std::size_t i = static_cast<std::size_t>(pivot) + 1; i < num_qubits_; ++i) {
         if (!gen.x_[i]) continue;
 
-        for (auto j = 0; j < num_qubits_; ++j) {
+        for (std::size_t j = 0; j < num_qubits_; ++j) {
             computational_[j].sign_ = computational_[j].sign_ !=
                                       (computational_[j].x_[pivot] && computational_[j].z_[i] &&
                                        (computational_[j].x_[i] == computational_[j].z_[pivot]));
@@ -68,7 +68,7 @@ void Tableau::CleanUp(int pivot, const PauliString& gen) noexcept {
     if (!gen.z_[pivot]) return;
 
     // s^dagger applied to pivot
-    for (int i = 0; i < num_qubits_; ++i) {
+    for (std::size_t i = 0; i < num_qubits_; ++i) {
         hadamard_[i].sign_ =
             hadamard_[i].sign_ != (hadamard_[i].x_[pivot] && !hadamard_[i].z_[pivot]);
         hadamard_[i].z_[pivot] ^= hadamard_[i].x_[pivot];
@@ -79,9 +79,9 @@ void Tableau::CleanUp(int pivot, const PauliString& gen) noexcept {
     }
 }
 
-void Tableau::Collapse(int pivot, bool p) noexcept {
+void Tableau::Collapse(QubitIdx pivot, bool p) noexcept {
     // Apply X on the pivot when the measured outcome is 1 (p).
-    for (int i = 0; i < num_qubits_; ++i) {
+    for (std::size_t i = 0; i < num_qubits_; ++i) {
         SwapBit(computational_[i].x_[pivot], computational_[i].z_[pivot]);
         computational_[i].sign_ = computational_[i].sign_ != (computational_[i].z_[pivot] &&
                                                               (p != computational_[i].x_[pivot]));
@@ -92,11 +92,11 @@ void Tableau::Collapse(int pivot, bool p) noexcept {
     }
 }
 
-bool Tableau::RandomMeasurement(int q, Basis b) {
+bool Tableau::RandomMeasurement(QubitIdx q, Basis b) {
     const auto& gen = (b == Basis::kComputational) ? computational_[q] : hadamard_[q];
-    auto pivot = 0;
+    QubitIdx pivot = 0;
 
-    for (auto i = 0; i < num_qubits_; ++i) {
+    for (QubitIdx i = 0; i < num_qubits_; ++i) {
         if (gen.x_[i]) {
             pivot = i;
             break;
@@ -108,23 +108,23 @@ bool Tableau::RandomMeasurement(int q, Basis b) {
     return gen.sign_;
 }
 
-bool Tableau::MeasureZ(int q) {
+bool Tableau::MeasureZ(QubitIdx q) {
     if (computational_[q].x_.any()) {
         return RandomMeasurement(q, Basis::kComputational);
     }
     return computational_[q].sign_;
 }
 
-bool Tableau::MeasureX(int q) {
+bool Tableau::MeasureX(QubitIdx q) {
     if (hadamard_[q].x_.any()) {
         return RandomMeasurement(q, Basis::kHadamard);
     }
     return hadamard_[q].sign_;
 }
 
-void Tableau::ApplyH(int q) { std::swap(computational_[q], hadamard_[q]); }
+void Tableau::ApplyH(QubitIdx q) { std::swap(computational_[q], hadamard_[q]); }
 
-void Tableau::ApplyCx(int c, int t) {
+void Tableau::ApplyCx(QubitIdx c, QubitIdx t) {
     hadamard_[c].sign_ = Phase(hadamard_[c], hadamard_[t], 0);
     hadamard_[c].x_ ^= hadamard_[t].x_;
     hadamard_[c].z_ ^= hadamard_[t].z_;
@@ -134,42 +134,42 @@ void Tableau::ApplyCx(int c, int t) {
     computational_[t].z_ ^= computational_[c].z_;
 }
 
-void Tableau::ApplyX(int q) noexcept { computational_[q].sign_ = !computational_[q].sign_; }
+void Tableau::ApplyX(QubitIdx q) noexcept { computational_[q].sign_ = !computational_[q].sign_; }
 
-void Tableau::ApplyS(int q) {
+void Tableau::ApplyS(QubitIdx q) {
     hadamard_[q].sign_ = Phase(hadamard_[q], computational_[q], 3);
     hadamard_[q].x_ ^= computational_[q].x_;
     hadamard_[q].z_ ^= computational_[q].z_;
 }
 
-void Tableau::ApplyZ(int q) noexcept { hadamard_[q].sign_ = !hadamard_[q].sign_; }
+void Tableau::ApplyZ(QubitIdx q) noexcept { hadamard_[q].sign_ = !hadamard_[q].sign_; }
 
 void Tableau::Print() const {
-    for (size_t j = 0; j < num_qubits_; ++j) {
+    for (std::size_t j = 0; j < num_qubits_; ++j) {
         std::cout << (j == 0 ? "\n    | " : "") << "x" << (j == num_qubits_ - 1 ? " | " : " ");
     }
-    for (size_t j = 0; j < num_qubits_; ++j) {
+    for (std::size_t j = 0; j < num_qubits_; ++j) {
         std::cout << "z" << (j == num_qubits_ - 1 ? " |" : " ");
     }
     std::cout << " r |";
 
-    for (size_t i = 0; i < num_qubits_; ++i) {
-        for (size_t j = 0; j < num_qubits_; ++j) {
+    for (std::size_t i = 0; i < num_qubits_; ++i) {
+        for (std::size_t j = 0; j < num_qubits_; ++j) {
             std::cout << (j == 0 ? "\nX" + std::to_string(i) + ": | " : "") << hadamard_[i].x_[j]
                       << (j == num_qubits_ - 1 ? " | " : " ");
         }
-        for (size_t j = 0; j < num_qubits_; ++j) {
+        for (std::size_t j = 0; j < num_qubits_; ++j) {
             std::cout << hadamard_[i].z_[j] << (j == num_qubits_ - 1 ? " | " : " ");
         }
         std::cout << hadamard_[i].sign_ << " |";
     }
 
-    for (size_t i = 0; i < num_qubits_; ++i) {
-        for (size_t j = 0; j < num_qubits_; ++j) {
+    for (std::size_t i = 0; i < num_qubits_; ++i) {
+        for (std::size_t j = 0; j < num_qubits_; ++j) {
             std::cout << (j == 0 ? "\nZ" + std::to_string(i) + ": | " : "")
                       << computational_[i].x_[j] << (j == num_qubits_ - 1 ? " | " : " ");
         }
-        for (size_t j = 0; j < num_qubits_; ++j) {
+        for (std::size_t j = 0; j < num_qubits_; ++j) {
             std::cout << computational_[i].z_[j] << (j == num_qubits_ - 1 ? " | " : " ");
         }
 
@@ -191,7 +191,8 @@ std::int64_t Tableau::E(const PauliString& a, const PauliString& b) {
            static_cast<std::int64_t>(((a.x_ ^ b.x_) & (a.z_ ^ b.z_)).count());
 }
 
-bool Tableau::Phase(const PauliString& a, const PauliString& b, int phase_rule) {
+bool Tableau::Phase(const PauliString& a, const PauliString& b, std::uint8_t phase_rule) {
+    assert(phase_rule < 4);  // NOLINT(misc-static-assert)
     const auto val =
         static_cast<std::uint64_t>(E(a, b) + (a.sign_ ? 2 : 0) + (b.sign_ ? 2 : 0) + phase_rule) &
         3U;
