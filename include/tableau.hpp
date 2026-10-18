@@ -8,11 +8,11 @@
 #include <sstream>
 #include <vector>
 
-#include "generator.hpp"
+#include "pauli_string.hpp"
 
 namespace stabaal {
 using BitRef = boost::dynamic_bitset<>::reference;
-using BasisTable = std::vector<Generator>;
+using BasisTable = std::vector<PauliString>;
 
 class Tableau {
    public:
@@ -22,7 +22,7 @@ class Tableau {
         kImaginary,
     };
 
-    explicit Tableau(int qubit_count);
+    explicit Tableau(int num_qubits);
 
     void Add();
 
@@ -44,14 +44,14 @@ class Tableau {
 
     BasisTable computational_;
     BasisTable hadamard_;
-    std::uint64_t qubits_;
+    std::uint64_t num_qubits_;
 
-    void CleanUp(int pivot, const Generator& gen) noexcept;
+    void CleanUp(int pivot, const PauliString& gen) noexcept;
     void Collapse(int pivot, bool p) noexcept;
     bool RandomMeasurement(int q, Basis b);
 
-    static std::int64_t E(const Generator& a, const Generator& b);
-    static bool Phase(const Generator& a, const Generator& b, int phase_rule);
+    static std::int64_t E(const PauliString& a, const PauliString& b);
+    static bool Phase(const PauliString& a, const PauliString& b, int phase_rule);
 
     static void SwapBit(BitRef a, BitRef b) noexcept;
 };

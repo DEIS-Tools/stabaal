@@ -19,7 +19,7 @@ struct TableauTestAccess {
     static void Seed(unsigned int value) { Tableau::RandomEngine().seed(value); }
     static BasisTable& Comp(Tableau& t) { return t.computational_; }
     static BasisTable& Had(Tableau& t) { return t.hadamard_; }
-    static std::uint64_t Qubits(Tableau& t) { return t.qubits_; }
+    static std::uint64_t Qubits(Tableau& t) { return t.num_qubits_; }
 
     static void CleanUp(Tableau& t, int pivot, const Generator& gen) { t.CleanUp(pivot, gen); }
     static void Collapse(Tableau& t, int pivot, bool p) { t.Collapse(pivot, p); }
