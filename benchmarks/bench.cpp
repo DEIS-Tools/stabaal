@@ -20,7 +20,7 @@
 namespace {
 
 template <typename T>
-T Parse(std::string_view text) {
+T Parse(const std::string_view text) {
     T value{};
     const auto* const last{std::to_address(text.end())};
     const auto [end, error]{std::from_chars(std::to_address(text.begin()), last, value)};

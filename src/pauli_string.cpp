@@ -1,5 +1,7 @@
 #include "pauli_string.hpp"
 
+#include <bit>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 
@@ -7,40 +9,50 @@
 
 using namespace stabaal;
 
-PauliString::PauliString() = default;
-PauliString::PauliString(QubitIdx num_qubits) : x_{num_qubits}, z_{num_qubits} {}
+PauliString::PauliString() noexcept = default;
+PauliString::PauliString(const QubitIdx num_qubits) : x_{num_qubits}, z_{num_qubits} {}
 
-void PauliString::AddI() noexcept {
-    x_.push_back(false);
-    z_.push_back(false);
+void PauliString::AddI() {
+    x_.PushBack();
+    z_.PushBack();
 }
 
-std::size_t PauliString::Size() const noexcept { return x_.size(); }
+std::size_t PauliString::Size() const noexcept { return x_.Size(); }
 
-bool PauliString::AnyX() const noexcept { return x_.any(); }
+bool PauliString::AnyX() const noexcept { return x_.Any(); }
 
-bool PauliString::GetX(QubitIdx idx) const noexcept { return x_[idx]; }
+bool PauliString::GetX(const QubitIdx idx) const { return x_.Get(idx); }
 
-bool PauliString::GetZ(QubitIdx idx) const noexcept { return z_[idx]; }
+bool PauliString::GetZ(const QubitIdx idx) const { return z_.Get(idx); }
 
-void PauliString::SetX(QubitIdx idx, bool val) noexcept { x_[idx] = val; }
+void PauliString::SetX(const QubitIdx idx, const bool val) { x_.Set(idx, val); }
 
-void PauliString::SetZ(QubitIdx idx, bool val) noexcept { z_[idx] = val; }
+void PauliString::SetZ(const QubitIdx idx, const bool val) { z_.Set(idx, val); }
 
-void PauliString::SwapXZ(QubitIdx idx) noexcept {
-    const bool x{x_[idx]};
-    x_[idx] = z_[idx];
-    z_[idx] = x;
+void PauliString::SwapXZ(const QubitIdx idx) {
+    const bool x{x_.Get(idx)};
+    x_.Set(idx, z_.Get(idx));
+    z_.Set(idx, x);
 }
 
-void PauliString::XorWith(const PauliString& other) noexcept {
+PauliString& PauliString::operator^=(const PauliString& other) noexcept {
     x_ ^= other.x_;
     z_ ^= other.z_;
+    return *this;
 }
 
-std::int64_t PauliString::PhaseExponent(const PauliString& other) const {
-    return static_cast<std::int64_t>((z_ & x_).count()) +
-           static_cast<std::int64_t>((other.z_ & other.x_).count()) +
-           2 * static_cast<std::int64_t>((z_ & other.x_).count()) -
-           static_cast<std::int64_t>(((x_ ^ other.x_) & (z_ ^ other.z_)).count());
+std::int64_t PauliString::PhaseExponent(const PauliString& other) const noexcept {
+    assert(Size() == other.Size());
+    const auto x{x_.Words()};
+    const auto z{z_.Words()};
+    const auto other_x{other.x_.Words()};
+    const auto other_z{other.z_.Words()};
+    std::int64_t exponent{0};
+    for (std::size_t i{0}; i < x.size(); ++i) {
+        exponent += std::popcount(z[i] & x[i]) + std::popcount(other_z[i] & other_x[i]) +
+                    2 * std::popcount(z[i] & other_x[i]) -
+                    std::popcount((x[i] ^ other_x[i]) & (z[i] ^ other_z[i]));
+    }
+    
+    return exponent;
 }

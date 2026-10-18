@@ -5,8 +5,8 @@
 
 using namespace stabaal;
 
-BasisTable::BasisTable(QubitIdx num_qubits)
-    : gens{num_qubits, PauliString{num_qubits}}, signs{num_qubits, 0} {}
+BasisTable::BasisTable(const QubitIdx num_qubits)
+    : gens{num_qubits, PauliString{num_qubits}}, signs{num_qubits} {}
 
 void BasisTable::Add() {
     for (auto& row : gens) {
@@ -14,5 +14,5 @@ void BasisTable::Add() {
     }
 
     gens.emplace_back(static_cast<QubitIdx>(gens.size() + 1));
-    signs.push_back(false);
+    signs.PushBack();
 }

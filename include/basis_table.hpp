@@ -1,9 +1,9 @@
 #ifndef STABAAL_BASIS_TABLE_HPP
 #define STABAAL_BASIS_TABLE_HPP
 
-#include <boost/dynamic_bitset.hpp>
 #include <vector>
 
+#include "dynamic_bitset.hpp"
 #include "pauli_string.hpp"
 #include "types.hpp"
 
@@ -15,7 +15,7 @@ struct BasisTable {
     void Add();
 
     std::vector<PauliString> gens;
-    boost::dynamic_bitset<> signs;
+    DynamicBitset signs;
 };
 
 }  // namespace stabaal

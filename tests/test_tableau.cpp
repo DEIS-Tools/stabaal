@@ -5,6 +5,7 @@
 #include <complex>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <random>
 #include <set>
 #include <stdexcept>
@@ -43,12 +44,12 @@ static PauliString Pauli(const std::string& s) {
 }
 
 // Renders a generator as a signed Pauli string, e.g. "-XIZY".
-static std::string Str(const PauliString& g, bool sign = false) {
+static std::string Str(const PauliString& g, const bool sign = false) {
     std::string s{sign ? "-" : "+"};
-    auto n{g.Size()};
+    const auto n{g.Size()};
     for (std::size_t i{0}; i < n; ++i) {
-        bool x{g.GetX(i)};
-        bool z{g.GetZ(i)};
+        const bool x{g.GetX(i)};
+        const bool z{g.GetZ(i)};
         s += x ? (z ? 'Y' : 'X') : (z ? 'Z' : 'I');
     }
     return s;
@@ -64,7 +65,7 @@ struct CoutCapture {
 
 // 2x2 Pauli matrices used as an independent reference for e().
 using Mat = std::array<std::complex<double>, 4>;
-static Mat PauliMatrix(char p) {
+static Mat PauliMatrix(const char p) {
     using Complex = std::complex<double>;
     switch (p) {
         case 'X':
@@ -85,11 +86,11 @@ static Mat Multiply(const Mat& a, const Mat& b) {
 struct StateVector {
     std::vector<std::complex<double>> amplitudes;
 
-    explicit StateVector(QubitIdx n) : amplitudes(std::size_t{1} << n) { amplitudes[0] = 1; }
+    explicit StateVector(const QubitIdx n) : amplitudes(std::size_t{1} << n) { amplitudes[0] = 1; }
 
     void Add() { amplitudes.resize(amplitudes.size() * 2); }
 
-    void Apply(std::uint8_t gate, QubitIdx q, QubitIdx target) {
+    void Apply(const std::uint8_t gate, const QubitIdx q, const QubitIdx target) {
         const auto mask{std::size_t{1} << q};
         for (std::size_t i{0}; i < amplitudes.size(); ++i) {
             if ((i & mask) != 0) continue;
@@ -120,7 +121,7 @@ struct StateVector {
         }
     }
 
-    void MeasureZ(QubitIdx q, bool result) {
+    void MeasureZ(const QubitIdx q, const bool result) {
         const auto mask{std::size_t{1} << q};
         double probability{0};
         for (std::size_t i{0}; i < amplitudes.size(); ++i) {
@@ -186,7 +187,7 @@ TEST_CASE("Tableau gates and measurements agree with state-vector simulation", "
 }
 
 TEST_CASE("New qubits start in zero", "[tableau][add]") {
-    QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{4})};
+    const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{4})};
     Tableau t{n};
     for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(t.MeasureZ(q));
     t.Add();
@@ -237,7 +238,7 @@ TEST_CASE("Print", "[tableau][Print]") {
               "\n");
     }
     SECTION("fresh 2-qubit tableau") {
-        Tableau t{2};
+        const Tableau t{2};
         CoutCapture cap{};
         t.Print();
         CHECK(cap.ss.str() ==
@@ -273,7 +274,8 @@ TEST_CASE("Print", "[tableau][Print]") {
 }
 
 TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[tableau][signs]") {
-    QubitIdx n{GENERATE(QubitIdx{1}, QubitIdx{63}, QubitIdx{64}, QubitIdx{65}, QubitIdx{129})};
+    const QubitIdx n{
+        GENERATE(QubitIdx{1}, QubitIdx{63}, QubitIdx{64}, QubitIdx{65}, QubitIdx{129})};
     const auto q{n - 1};
     Tableau t{n};
     t.ApplyX(q);
@@ -287,19 +289,23 @@ TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[tableau
 TEST_CASE("BasisTable appends identity rows and positive signs", "[basis][add]") {
     BasisTable table{2};
     REQUIRE(table.gens.size() == 2);
-    REQUIRE(table.signs == boost::dynamic_bitset<>{2});
+    REQUIRE(table.signs.Size() == 2);
+    CHECK_FALSE(table.signs.Any());
     table.gens[0].SetX(0);
-    table.signs[0] = true;
+    table.signs.Set(0, true);
     table.Add();
     REQUIRE(table.gens.size() == 3);
-    REQUIRE(table.signs == boost::dynamic_bitset<>{3, 1});
-    CHECK(Str(table.gens[0], table.signs[0]) == "-XII");
-    CHECK(Str(table.gens[1], table.signs[1]) == "+III");
-    CHECK(Str(table.gens[2], table.signs[2]) == "+III");
+    REQUIRE(table.signs.Size() == 3);
+    CHECK(table.signs.Get(0));
+    CHECK_FALSE(table.signs.Get(1));
+    CHECK_FALSE(table.signs.Get(2));
+    CHECK(Str(table.gens[0], table.signs.Get(0)) == "-XII");
+    CHECK(Str(table.gens[1], table.signs.Get(1)) == "+III");
+    CHECK(Str(table.gens[2], table.signs.Get(2)) == "+III");
 }
 
 TEST_CASE("PauliString swaps X/Z components", "[pauli][swap]") {
-    auto idx{GENERATE(0, 1, 2, 3)};
+    const auto idx{GENERATE(0, 1, 2, 3)};
     auto g{Pauli("IXZY")};
     auto expected{std::string{"+IXZY"}};
     expected[idx + 1] = std::string{"IZXY"}[idx];
@@ -310,15 +316,15 @@ TEST_CASE("PauliString swaps X/Z components", "[pauli][swap]") {
 }
 
 TEST_CASE("PauliString XOR across block boundaries", "[pauli][xor]") {
-    auto n{GENERATE(0, 1, 63, 64, 65, 129)};
+    const auto n{GENERATE(0, 1, 63, 64, 65, 129)};
     auto a{Pauli(std::string(n, 'X'))};
     const auto b{Pauli(std::string(n, 'Y'))};
-    a.XorWith(b);
+    a ^= b;
     CHECK(Str(a) == "+" + std::string(n, 'Z'));
     CHECK(Str(b) == "+" + std::string(n, 'Y'));
-    a.XorWith(b);
+    a ^= b;
     CHECK(Str(a) == "+" + std::string(n, 'X'));
-    a.XorWith(a);
+    a ^= a;
     CHECK(Str(a) == "+" + std::string(n, 'I'));
 }
 
@@ -328,7 +334,7 @@ TEST_CASE("e: single-qubit table", "[pauli][phase]") {
         const char* b;
         std::int64_t e;
     };
-    auto c{GENERATE(values<Case>({
+    const auto c{GENERATE(values<Case>({
         {"I", "I", 0},
         {"I", "X", 0},
         {"I", "Y", 0},
@@ -352,19 +358,19 @@ TEST_CASE("e: single-qubit table", "[pauli][phase]") {
 
 TEST_CASE("e: matches Pauli matrix multiplication", "[pauli][phase]") {
     const std::complex<double> imaginary_unit{0, 1};
-    for (char a : std::string{"IXYZ"}) {
-        for (char b : std::string{"IXYZ"}) {
+    for (const char a : std::string{"IXYZ"}) {
+        for (const char b : std::string{"IXYZ"}) {
             CAPTURE(a, b);
-            PauliString ga{Pauli(std::string(1, a))};
-            PauliString gb{Pauli(std::string(1, b))};
+            const PauliString ga{Pauli(std::string(1, a))};
+            const PauliString gb{Pauli(std::string(1, b))};
             PauliString prod{ga};
-            prod.XorWith(gb);
-            char p{Str(prod)[1]};
+            prod ^= gb;
+            const char p{Str(prod)[1]};
 
-            std::int64_t e{((ga.PhaseExponent(gb) % 4) + 4) % 4};
-            std::complex<double> factor{std::pow(imaginary_unit, e)};
-            Mat lhs{Multiply(PauliMatrix(a), PauliMatrix(b))};
-            Mat rhs{PauliMatrix(p)};
+            const std::int64_t e{((ga.PhaseExponent(gb) % 4) + 4) % 4};
+            const std::complex<double> factor{std::pow(imaginary_unit, e)};
+            const Mat lhs{Multiply(PauliMatrix(a), PauliMatrix(b))};
+            const Mat rhs{PauliMatrix(p)};
             for (std::size_t k{0}; k < 4; ++k) {
                 CHECK(std::abs(lhs[k] - factor * rhs[k]) < 1e-12);
             }
@@ -373,7 +379,7 @@ TEST_CASE("e: matches Pauli matrix multiplication", "[pauli][phase]") {
 }
 
 TEST_CASE("e: is additive over tensor products", "[pauli][phase]") {
-    auto pair{GENERATE(table<std::string, std::string>({
+    const auto pair{GENERATE(table<std::string, std::string>({
         {"XY", "ZZ"},
         {"YYYY", "XZXZ"},
         {"IXYZ", "ZYXI"},
@@ -382,13 +388,42 @@ TEST_CASE("e: is additive over tensor products", "[pauli][phase]") {
         {std::string(65, 'X'), std::string(65, 'Z')},
         {std::string(129, 'Y'), std::string(129, 'Y')},
     }))};
-    auto [a, b]{pair};
+    const auto& [a, b]{pair};
     std::int64_t sum{0};
     for (std::size_t i{0}; i < a.size(); ++i) {
         sum += Pauli(std::string(1, a[i])).PhaseExponent(Pauli(std::string(1, b[i])));
     }
     CAPTURE(a, b);
     CHECK(Pauli(a).PhaseExponent(Pauli(b)) == sum);
+}
+
+TEST_CASE("Tableau rejects invalid gate and measurement indices", "[tableau][bounds]") {
+    const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{65})};
+    Tableau tableau{n};
+    for (const auto q : {n, n + 1, std::numeric_limits<QubitIdx>::max()}) {
+        CHECK_THROWS_AS(tableau.ApplyH(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.ApplyX(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.ApplyS(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.ApplyZ(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.ApplyCx(q, 0), std::out_of_range);
+        CHECK_THROWS_AS(tableau.ApplyCx(0, q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.MeasureX(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.MeasureZ(q), std::out_of_range);
+    }
+    for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
+}
+
+TEST_CASE("PauliString propagates invalid index errors", "[pauli][bounds]") {
+    const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{65})};
+    PauliString gen{n};
+    for (const auto q : {n, n + 1, std::numeric_limits<QubitIdx>::max()}) {
+        CHECK_THROWS_AS(gen.GetX(q), std::out_of_range);
+        CHECK_THROWS_AS(gen.GetZ(q), std::out_of_range);
+        CHECK_THROWS_AS(gen.SetX(q), std::out_of_range);
+        CHECK_THROWS_AS(gen.SetZ(q), std::out_of_range);
+        CHECK_THROWS_AS(gen.SwapXZ(q), std::out_of_range);
+    }
+    CHECK(Str(gen) == "+" + std::string(n, 'I'));
 }
 
 }  // namespace stabaal

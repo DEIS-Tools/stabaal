@@ -1,37 +1,37 @@
 #ifndef STABAAL_PAULI_STRING_HPP
 #define STABAAL_PAULI_STRING_HPP
 
-#include <boost/dynamic_bitset.hpp>
 #include <cstddef>
 #include <cstdint>
 
+#include "dynamic_bitset.hpp"
 #include "types.hpp"
 
 namespace stabaal {
 
 class PauliString {
    public:
-    PauliString();
+    PauliString() noexcept;
     explicit PauliString(QubitIdx num_qubits);
 
-    void AddI() noexcept;
+    void AddI();
 
     std::size_t Size() const noexcept;
     bool AnyX() const noexcept;
 
-    bool GetX(QubitIdx idx) const noexcept;
-    bool GetZ(QubitIdx idx) const noexcept;
+    bool GetX(QubitIdx idx) const;
+    bool GetZ(QubitIdx idx) const;
 
-    void SetX(QubitIdx idx, bool val = true) noexcept;
-    void SetZ(QubitIdx idx, bool val = true) noexcept;
-    void SwapXZ(QubitIdx idx) noexcept;
+    void SetX(QubitIdx idx, bool val = true);
+    void SetZ(QubitIdx idx, bool val = true);
+    void SwapXZ(QubitIdx idx);
 
-    void XorWith(const PauliString& other) noexcept;
-    std::int64_t PhaseExponent(const PauliString& other) const;
+    PauliString& operator^=(const PauliString& other) noexcept;
+    std::int64_t PhaseExponent(const PauliString& other) const noexcept;
 
    private:
-    boost::dynamic_bitset<> x_;
-    boost::dynamic_bitset<> z_;
+    DynamicBitset x_;
+    DynamicBitset z_;
 };
 
 }  // namespace stabaal

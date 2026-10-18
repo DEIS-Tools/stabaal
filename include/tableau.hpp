@@ -30,9 +30,9 @@ class Tableau {
 
     void ApplyH(QubitIdx q);
     void ApplyCx(QubitIdx c, QubitIdx t);
-    void ApplyX(QubitIdx q) noexcept;
+    void ApplyX(QubitIdx q);
     void ApplyS(QubitIdx q);
-    void ApplyZ(QubitIdx q) noexcept;
+    void ApplyZ(QubitIdx q);
 
     void Print() const;
 
@@ -48,7 +48,7 @@ class Tableau {
     bool RandomMeasurement(QubitIdx q, Basis b);
 
     static bool Phase(const PauliString& a, bool a_sign, const PauliString& b, bool b_sign,
-                      std::uint8_t phase_rule);
+                      std::uint8_t phase_rule) noexcept;
 };
 
 }  // namespace stabaal
