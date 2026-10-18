@@ -45,20 +45,20 @@ class Tableau {
    private:
     friend struct TableauTestAccess;
 
-    static std::mt19937 &_randomEngine();
+    static std::mt19937& randomEngine_();
 
-    BasisTable _computational;
-    BasisTable _hadamard;
-    uint64_t _qubits;
+    BasisTable computational_;
+    BasisTable hadamard_;
+    uint64_t qubits_;
 
-    void _cleanUp(int pivot, const Generator &gen);
-    void _collapse(int pivot, bool p);
-    bool _randomMeasurement(int q, Basis b);
+    void cleanUp_(int pivot, const Generator& gen);
+    void collapse_(int pivot, bool p);
+    bool randomMeasurement_(int q, Basis b);
 
-    static int64_t _e(const Generator &a, const Generator &b);
-    static bool _phase(const Generator &a, const Generator &b, int phaseRule);
+    static int64_t e_(const Generator& a, const Generator& b);
+    static bool phase_(const Generator& a, const Generator& b, int phaseRule);
 
-    static void _swapBit(BitRef a, BitRef b);
+    static void swapBit_(BitRef a, BitRef b);
 };
 
 }  // namespace stabaal

@@ -16,27 +16,27 @@ namespace stabaal {
 
 // Friend of Tableau: gives the tests access to private state and helpers.
 struct TableauTestAccess {
-    static void seed(unsigned int value) { Tableau::_randomEngine().seed(value); }
-    static BasisTable &comp(Tableau &t) { return t._computational; }
-    static BasisTable &had(Tableau &t) { return t._hadamard; }
-    static uint64_t qubits(Tableau &t) { return t._qubits; }
+    static void seed(unsigned int value) { Tableau::randomEngine_().seed(value); }
+    static BasisTable& comp(Tableau& t) { return t.computational_; }
+    static BasisTable& had(Tableau& t) { return t.hadamard_; }
+    static uint64_t qubits(Tableau& t) { return t.qubits_; }
 
-    static void cleanUp(Tableau &t, int pivot, const Generator &gen) { t._cleanUp(pivot, gen); }
-    static void collapse(Tableau &t, int pivot, bool p) { t._collapse(pivot, p); }
-    static bool randomMeasurement(Tableau &t, int q, Tableau::Basis b) {
-        return t._randomMeasurement(q, b);
+    static void cleanUp(Tableau& t, int pivot, const Generator& gen) { t.cleanUp_(pivot, gen); }
+    static void collapse(Tableau& t, int pivot, bool p) { t.collapse_(pivot, p); }
+    static bool randomMeasurement(Tableau& t, int q, Tableau::Basis b) {
+        return t.randomMeasurement_(q, b);
     }
-    static int64_t e(Tableau &t, Generator a, Generator b) { return t._e(a, b); }
-    static bool phase(Tableau &t, Generator a, Generator b, int rule) {
-        return t._phase(a, b, rule);
+    static int64_t e(Tableau& t, Generator a, Generator b) { return t.e_(a, b); }
+    static bool phase(Tableau& t, Generator a, Generator b, int rule) {
+        return t.phase_(a, b, rule);
     }
-    static void swapBit(Tableau &t, BitRef a, BitRef b) { t._swapBit(a, b); }
+    static void swapBit(Tableau& t, BitRef a, BitRef b) { t.swapBit_(a, b); }
 };
 using A = TableauTestAccess;
 
 // Builds a generator from a Pauli string, e.g. pauli("XIZY", true) = -X⊗I⊗Z⊗Y.
 // Character i is the Pauli acting on qubit i.
-static Generator pauli(const std::string &s, bool neg = false) {
+static Generator pauli(const std::string& s, bool neg = false) {
     Generator g(s.size());
     for (size_t i = 0; i < s.size(); ++i) {
         switch (s[i]) {
@@ -61,7 +61,7 @@ static Generator pauli(const std::string &s, bool neg = false) {
 }
 
 // Renders a generator as a signed Pauli string, e.g. "-XIZY".
-static std::string str(const Generator &g) {
+static std::string str(const Generator& g) {
     std::string s = g.r ? "-" : "+";
     auto n = std::max(g.x.size(), g.z.size());
     for (size_t i = 0; i < n; ++i) {
@@ -72,16 +72,16 @@ static std::string str(const Generator &g) {
     return s;
 }
 
-static bool anticommute(const Generator &a, const Generator &b) {
+static bool anticommute(const Generator& a, const Generator& b) {
     return ((a.x & b.z).count() + (a.z & b.x).count()) % 2 == 1;
 }
 
 // All rows have the right size, and the rows form a valid symplectic basis:
 // comp[i] and had[j] anticommute iff i == j, everything else commutes.
-static void checkSymplectic(Tableau &t) {
+static void checkSymplectic(Tableau& t) {
     auto n = A::qubits(t);
-    auto &comp = A::comp(t);
-    auto &had = A::had(t);
+    auto& comp = A::comp(t);
+    auto& had = A::had(t);
     REQUIRE(comp.size() == n);
     REQUIRE(had.size() == n);
     for (size_t i = 0; i < n; ++i) {
@@ -111,7 +111,7 @@ static std::set<bool> outcomes(F f, int seeds = 64) {
 // Redirects std::cout for the lifetime of the object.
 struct CoutCapture {
     std::ostringstream ss;
-    std::streambuf *old;
+    std::streambuf* old;
     CoutCapture() : old(std::cout.rdbuf(ss.rdbuf())) {}
     ~CoutCapture() { std::cout.rdbuf(old); }
 };
@@ -131,7 +131,7 @@ static Mat mat(char p) {
             return {c(1), c(0), c(0), c(1)};
     }
 }
-static Mat mul(const Mat &a, const Mat &b) {
+static Mat mul(const Mat& a, const Mat& b) {
     return {a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3], a[2] * b[0] + a[3] * b[2],
             a[2] * b[1] + a[3] * b[3]};
 }
@@ -424,7 +424,7 @@ TEST_CASE("applyS", "[tableau][gate][s]") {
     }
     SECTION("S cycles X row: X -> -Y -> -X -> +Y -> X") {
         Tableau t(1);
-        const char *expected[] = {"-Y", "-X", "+Y", "+X"};
+        const char* expected[] = {"-Y", "-X", "+Y", "+X"};
         for (auto exp : expected) {
             t.applyS(0);
             CHECK(str(A::had(t)[0]) == exp);
@@ -761,8 +761,8 @@ TEST_CASE("swapBit", "[tableau][private][swapBit]") {
 TEST_CASE("e: single-qubit table", "[tableau][private][e]") {
     Tableau t(1);
     struct Case {
-        const char *a;
-        const char *b;
+        const char* a;
+        const char* b;
         int e;
     };
     auto c = GENERATE(values<Case>({
