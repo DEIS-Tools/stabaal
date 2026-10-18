@@ -66,6 +66,7 @@ int main(int argc, char** argv) {
         std::vector<double> times{};
         times.reserve(repeats);
         std::uint32_t checksum{0};
+        std::size_t memory_bytes{0};
         for (std::uint32_t repeat{0}; repeat < repeats; ++repeat) {
             stabaal::Tableau tableau{qubits};
             const auto start{std::chrono::steady_clock::now()};
@@ -91,13 +92,16 @@ int main(int argc, char** argv) {
 
             const auto stop{std::chrono::steady_clock::now()};
             times.push_back(std::chrono::duration<double>{stop - start}.count());
+            if (repeat == 0) memory_bytes = tableau.MemoryUsage();
             if (tableau.MeasureZ(repeat % qubits)) ++checksum;
         }
 
         std::sort(times.begin(), times.end());
         const auto median{(times[(times.size() - 1) / 2] + times[times.size() / 2]) / 2};
         std::cout << "qubits=" << qubits << " gates=" << gates << " repeats=" << repeats
-                  << std::fixed << std::setprecision(3) << "\nmedian=" << median << " s, "
+                  << std::fixed << std::setprecision(3) << "\ntableau_memory=" << memory_bytes
+                  << " bytes (" << static_cast<double>(memory_bytes) / 1024.0
+                  << " KiB; excluding allocator overhead)\nmedian=" << median << " s, "
                   << median * 1e9 / static_cast<double>(gates) << " ns/gate, "
                   << static_cast<double>(gates) / median / 1e6 << " million gates/s\n"
                   << "checksum=" << checksum << '\n';

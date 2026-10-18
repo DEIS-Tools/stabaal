@@ -315,17 +315,53 @@ TEST_CASE("PauliString swaps X/Z components", "[pauli][swap]") {
     CHECK(Str(g) == "+IXZY");
 }
 
-TEST_CASE("PauliString XOR across block boundaries", "[pauli][xor]") {
+TEST_CASE("PauliString multiplication across block boundaries", "[pauli][xor]") {
     const auto n{GENERATE(0, 1, 63, 64, 65, 129)};
     auto a{Pauli(std::string(n, 'X'))};
     const auto b{Pauli(std::string(n, 'Y'))};
-    a ^= b;
+    CHECK(a.XorWithPhase(b) == n);
     CHECK(Str(a) == "+" + std::string(n, 'Z'));
     CHECK(Str(b) == "+" + std::string(n, 'Y'));
-    a ^= b;
+    CHECK(a.XorWithPhase(b) == 3 * n);
     CHECK(Str(a) == "+" + std::string(n, 'X'));
-    a ^= a;
+    CHECK(a.XorWithPhase(a) == 0);
     CHECK(Str(a) == "+" + std::string(n, 'I'));
+}
+
+TEST_CASE("Fused XOR preserves phase, result, and source", "[pauli][phase][xor]") {
+    constexpr std::array<std::array<std::int64_t, 4>, 4> kPhases{{
+        {0, 0, 0, 0},
+        {0, 0, 1, -1},
+        {0, 3, 4, 1},
+        {0, 1, 3, 0},
+    }};
+    constexpr std::array<const char*, 4> kProducts{"IXYZ", "XIZY", "YZIX", "ZYXI"};
+    const auto n{GENERATE(0, 1, 63, 64, 65, 129)};
+    std::mt19937 rng{42};
+    for (std::uint32_t trial{0}; trial < 32; ++trial) {
+        std::string lhs(n, 'I');
+        std::string rhs(n, 'I');
+        std::string expected(n, 'I');
+        std::int64_t exponent{0};
+        std::int64_t self_exponent{0};
+        for (std::size_t i{0}; i < lhs.size(); ++i) {
+            const auto a{rng() % 4};
+            const auto b{rng() % 4};
+            lhs[i] = "IXYZ"[a];
+            rhs[i] = "IXYZ"[b];
+            expected[i] = kProducts[a][b];
+            exponent += kPhases[a][b];
+            if (expected[i] == 'Y') self_exponent += 4;
+        }
+        auto a{Pauli(lhs)};
+        const auto b{Pauli(rhs)};
+        CHECK(a.XorWithPhase(b) == exponent);
+        CHECK(Str(a) == "+" + expected);
+        CHECK(Str(b) == "+" + rhs);
+
+        CHECK(a.XorWithPhase(a) == self_exponent);
+        CHECK(Str(a) == "+" + std::string(n, 'I'));
+    }
 }
 
 TEST_CASE("e: single-qubit table", "[pauli][phase]") {
@@ -353,7 +389,7 @@ TEST_CASE("e: single-qubit table", "[pauli][phase]") {
         {"Z", "Z", 0},
     }))};
     CAPTURE(c.a, c.b);
-    CHECK(Pauli(c.a).PhaseExponent(Pauli(c.b)) == c.e);
+    CHECK(Pauli(c.a).XorWithPhase(Pauli(c.b)) == c.e);
 }
 
 TEST_CASE("e: matches Pauli matrix multiplication", "[pauli][phase]") {
@@ -364,10 +400,10 @@ TEST_CASE("e: matches Pauli matrix multiplication", "[pauli][phase]") {
             const PauliString ga{Pauli(std::string(1, a))};
             const PauliString gb{Pauli(std::string(1, b))};
             PauliString prod{ga};
-            prod ^= gb;
+            const auto exponent{prod.XorWithPhase(gb)};
             const char p{Str(prod)[1]};
 
-            const std::int64_t e{((ga.PhaseExponent(gb) % 4) + 4) % 4};
+            const std::int64_t e{((exponent % 4) + 4) % 4};
             const std::complex<double> factor{std::pow(imaginary_unit, e)};
             const Mat lhs{Multiply(PauliMatrix(a), PauliMatrix(b))};
             const Mat rhs{PauliMatrix(p)};
@@ -391,10 +427,10 @@ TEST_CASE("e: is additive over tensor products", "[pauli][phase]") {
     const auto& [a, b]{pair};
     std::int64_t sum{0};
     for (std::size_t i{0}; i < a.size(); ++i) {
-        sum += Pauli(std::string(1, a[i])).PhaseExponent(Pauli(std::string(1, b[i])));
+        sum += Pauli(std::string(1, a[i])).XorWithPhase(Pauli(std::string(1, b[i])));
     }
     CAPTURE(a, b);
-    CHECK(Pauli(a).PhaseExponent(Pauli(b)) == sum);
+    CHECK(Pauli(a).XorWithPhase(Pauli(b)) == sum);
 }
 
 TEST_CASE("Tableau rejects invalid gate and measurement indices", "[tableau][bounds]") {
@@ -411,19 +447,6 @@ TEST_CASE("Tableau rejects invalid gate and measurement indices", "[tableau][bou
         CHECK_THROWS_AS(tableau.MeasureZ(q), std::out_of_range);
     }
     for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
-}
-
-TEST_CASE("PauliString propagates invalid index errors", "[pauli][bounds]") {
-    const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{65})};
-    PauliString gen{n};
-    for (const auto q : {n, n + 1, std::numeric_limits<QubitIdx>::max()}) {
-        CHECK_THROWS_AS(gen.GetX(q), std::out_of_range);
-        CHECK_THROWS_AS(gen.GetZ(q), std::out_of_range);
-        CHECK_THROWS_AS(gen.SetX(q), std::out_of_range);
-        CHECK_THROWS_AS(gen.SetZ(q), std::out_of_range);
-        CHECK_THROWS_AS(gen.SwapXZ(q), std::out_of_range);
-    }
-    CHECK(Str(gen) == "+" + std::string(n, 'I'));
 }
 
 }  // namespace stabaal

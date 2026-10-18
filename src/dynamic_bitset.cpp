@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <limits>
 #include <span>
-#include <stdexcept>
 #include <utility>
 
 using namespace stabaal;
@@ -41,24 +40,22 @@ DynamicBitset& DynamicBitset::operator=(DynamicBitset&& other) noexcept {
 
 std::size_t DynamicBitset::Size() const noexcept { return num_bits_; }
 
+std::size_t DynamicBitset::AllocatedBytes() const noexcept {
+    return words_.capacity() * sizeof(std::uint64_t);
+}
+
 bool DynamicBitset::Any() const noexcept {
     return std::any_of(words_.begin(), words_.end(),
                        [](const std::uint64_t word) noexcept { return word != 0; });
 }
 
-bool DynamicBitset::Get(const std::size_t idx) const {
-    if (idx >= num_bits_) [[unlikely]] {
-        throw std::out_of_range{"Bit index out of range"};
-    }
-
+bool DynamicBitset::Get(const std::size_t idx) const noexcept {
+    assert(idx < num_bits_);
     return (words_[idx / kBitsPerWord] & (std::uint64_t{1} << (idx % kBitsPerWord))) != 0;
 }
 
-void DynamicBitset::Set(const std::size_t idx, const bool value) {
-    if (idx >= num_bits_) [[unlikely]] {
-        throw std::out_of_range{"Bit index out of range"};
-    }
-
+void DynamicBitset::Set(const std::size_t idx, const bool value) noexcept {
+    assert(idx < num_bits_);
     const auto mask{std::uint64_t{1} << (idx % kBitsPerWord)};
     auto& word{words_[idx / kBitsPerWord]};
     word = (word & ~mask) | (value ? mask : 0);
@@ -70,13 +67,6 @@ void DynamicBitset::PushBack(const bool value) {
     if (value) Set(num_bits_ - 1);
 }
 
-DynamicBitset& DynamicBitset::operator^=(const DynamicBitset& other) noexcept {
-    assert(num_bits_ == other.num_bits_);
-    for (std::size_t i{0}; i < words_.size(); ++i) {
-        words_[i] ^= other.words_[i];
-    }
-
-    return *this;
-}
+std::span<std::uint64_t> DynamicBitset::Words() noexcept { return words_; }
 
 std::span<const std::uint64_t> DynamicBitset::Words() const noexcept { return words_; }

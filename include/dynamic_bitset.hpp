@@ -19,11 +19,12 @@ class DynamicBitset {
     ~DynamicBitset() noexcept;
 
     std::size_t Size() const noexcept;
+    std::size_t AllocatedBytes() const noexcept;
     bool Any() const noexcept;
-    bool Get(std::size_t idx) const;
-    void Set(std::size_t idx, bool value = true);
+    bool Get(std::size_t idx) const noexcept;
+    void Set(std::size_t idx, bool value = true) noexcept;
     void PushBack(bool value = false);
-    DynamicBitset& operator^=(const DynamicBitset& other) noexcept;
+    std::span<std::uint64_t> Words() noexcept;
     std::span<const std::uint64_t> Words() const noexcept;
 
    private:

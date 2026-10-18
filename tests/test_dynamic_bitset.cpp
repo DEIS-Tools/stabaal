@@ -2,9 +2,7 @@
 #include <catch2/generators/catch_generators.hpp>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <random>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -48,23 +46,6 @@ TEST_CASE("DynamicBitset updates match independent bit values", "[bitset]") {
     }
 }
 
-TEST_CASE("DynamicBitset XOR handles partial words and self aliasing", "[bitset]") {
-    const auto n{GENERATE(0, 1, 63, 64, 65, 129)};
-    DynamicBitset a{static_cast<std::size_t>(n)};
-    DynamicBitset b{static_cast<std::size_t>(n)};
-    for (std::size_t i{0}; i < a.Size(); ++i) {
-        a.Set(i, i % 2 == 0);
-        b.Set(i, i % 3 == 0);
-    }
-    a ^= b;
-    for (std::size_t i{0}; i < a.Size(); ++i) {
-        CHECK(a.Get(i) == ((i % 2 == 0) != (i % 3 == 0)));
-        CHECK(b.Get(i) == (i % 3 == 0));
-    }
-    a ^= a;
-    CHECK_FALSE(a.Any());
-}
-
 TEST_CASE("DynamicBitset copies own their storage and moved-from objects can grow", "[bitset]") {
     DynamicBitset original{65};
     original.Set(64);
@@ -89,16 +70,4 @@ TEST_CASE("DynamicBitset copies own their storage and moved-from objects can gro
     moved = copy;
     moved.Set(64, false);
     CHECK(copy.Get(64));
-}
-
-TEST_CASE("DynamicBitset rejects indices outside its logical size", "[bitset][bounds]") {
-    const auto n{GENERATE(std::size_t{0}, std::size_t{1}, std::size_t{63}, std::size_t{64},
-                          std::size_t{65})};
-    DynamicBitset bits{n};
-    for (const auto idx : {n, n + 1, std::numeric_limits<std::size_t>::max()}) {
-        CHECK_THROWS_AS(bits.Get(idx), std::out_of_range);
-        CHECK_THROWS_AS(bits.Set(idx), std::out_of_range);
-        CHECK_FALSE(bits.Any());
-        CHECK(bits.Size() == n);
-    }
 }

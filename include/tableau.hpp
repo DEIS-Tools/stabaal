@@ -1,6 +1,7 @@
 #ifndef STABAAL_TABLEAU_HPP
 #define STABAAL_TABLEAU_HPP
 
+#include <cstddef>
 #include <cstdint>
 #include <iomanip>
 #include <iostream>
@@ -36,6 +37,8 @@ class Tableau {
 
     void Print() const;
 
+    std::size_t MemoryUsage() const noexcept;
+
    private:
     static std::mt19937& RandomEngine();
 
@@ -47,7 +50,7 @@ class Tableau {
     void Collapse(QubitIdx pivot, bool p) noexcept;
     bool RandomMeasurement(QubitIdx q, Basis b);
 
-    static bool Phase(const PauliString& a, bool a_sign, const PauliString& b, bool b_sign,
+    static bool Phase(std::int64_t exponent, bool a_sign, bool b_sign,
                       std::uint8_t phase_rule) noexcept;
 };
 

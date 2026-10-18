@@ -17,17 +17,17 @@ class PauliString {
     void AddI();
 
     std::size_t Size() const noexcept;
+    std::size_t AllocatedBytes() const noexcept;
     bool AnyX() const noexcept;
 
-    bool GetX(QubitIdx idx) const;
-    bool GetZ(QubitIdx idx) const;
+    bool GetX(QubitIdx idx) const noexcept;
+    bool GetZ(QubitIdx idx) const noexcept;
 
-    void SetX(QubitIdx idx, bool val = true);
-    void SetZ(QubitIdx idx, bool val = true);
-    void SwapXZ(QubitIdx idx);
+    void SetX(QubitIdx idx, bool val = true) noexcept;
+    void SetZ(QubitIdx idx, bool val = true) noexcept;
+    void SwapXZ(QubitIdx idx) noexcept;
 
-    PauliString& operator^=(const PauliString& other) noexcept;
-    std::int64_t PhaseExponent(const PauliString& other) const noexcept;
+    std::int64_t XorWithPhase(const PauliString& other) noexcept;
 
    private:
     DynamicBitset x_;

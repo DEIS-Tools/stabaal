@@ -148,13 +148,13 @@ void Tableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    hadamard_.signs.Set(c, Phase(hadamard_.gens[c], hadamard_.signs.Get(c), hadamard_.gens[t],
-                                 hadamard_.signs.Get(t), 0));
-    hadamard_.gens[c] ^= hadamard_.gens[t];
+    const auto hadamard_phase{hadamard_.gens[c].XorWithPhase(hadamard_.gens[t])};
+    hadamard_.signs.Set(c,
+                        Phase(hadamard_phase, hadamard_.signs.Get(c), hadamard_.signs.Get(t), 0));
 
-    computational_.signs.Set(t, Phase(computational_.gens[c], computational_.signs.Get(c),
-                                      computational_.gens[t], computational_.signs.Get(t), 0));
-    computational_.gens[t] ^= computational_.gens[c];
+    const auto computational_phase{computational_.gens[t].XorWithPhase(computational_.gens[c])};
+    computational_.signs.Set(
+        t, Phase(computational_phase, computational_.signs.Get(t), computational_.signs.Get(c), 0));
 }
 
 void Tableau::ApplyX(const QubitIdx q) {
@@ -169,9 +169,8 @@ void Tableau::ApplyS(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
-    hadamard_.signs.Set(q, Phase(hadamard_.gens[q], hadamard_.signs.Get(q), computational_.gens[q],
-                                 computational_.signs.Get(q), 3));
-    hadamard_.gens[q] ^= computational_.gens[q];
+    const auto exponent{hadamard_.gens[q].XorWithPhase(computational_.gens[q])};
+    hadamard_.signs.Set(q, Phase(exponent, hadamard_.signs.Get(q), computational_.signs.Get(q), 3));
 }
 
 void Tableau::ApplyZ(const QubitIdx q) {
@@ -180,6 +179,10 @@ void Tableau::ApplyZ(const QubitIdx q) {
     }
 
     hadamard_.signs.Set(q, !hadamard_.signs.Get(q));
+}
+
+std::size_t Tableau::MemoryUsage() const noexcept {
+    return sizeof(*this) + computational_.AllocatedBytes() + hadamard_.AllocatedBytes();
 }
 
 void Tableau::Print() const {
@@ -218,18 +221,14 @@ void Tableau::Print() const {
 
         std::cout << computational_.signs.Get(i) << " |";
     }
-    
+
     std::cout << '\n';
 }
 
-bool Tableau::Phase(const PauliString& a, const bool a_sign, const PauliString& b,
-                    const bool b_sign, const std::uint8_t phase_rule) noexcept {
+bool Tableau::Phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
+                    const std::uint8_t phase_rule) noexcept {
     assert(phase_rule < 4);
-    const auto val{
-        static_cast<std::uint64_t>(a.PhaseExponent(b) + (a_sign ? 2 : 0) + (b_sign ? 2 : 0) +
-                                   phase_rule) &
-            3U,
-    };
-    assert(val % 2 == 0);
-    return val == 2;
+    const auto phase{static_cast<std::uint64_t>(exponent + phase_rule) & 3U};
+    assert(phase % 2 == 0);
+    return (phase == 2) != (a_sign != b_sign);
 }
