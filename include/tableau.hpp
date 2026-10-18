@@ -11,17 +11,12 @@
 #include "generator.hpp"
 
 namespace stabaal {
-
-using std::int64_t;
-using std::uint64_t;
-using std::uint8_t;
-
 using BitRef = boost::dynamic_bitset<>::reference;
 using BasisTable = std::vector<Generator>;
 
 class Tableau {
    public:
-    enum class Basis : uint8_t {
+    enum class Basis : std::uint8_t {
         COMPUTATIONAL,
         HADAMARD,
         IMAGINARY,
@@ -49,13 +44,13 @@ class Tableau {
 
     BasisTable computational_;
     BasisTable hadamard_;
-    uint64_t qubits_;
+    std::uint64_t qubits_;
 
     void cleanUp_(int pivot, const Generator& gen);
     void collapse_(int pivot, bool p);
     bool randomMeasurement_(int q, Basis b);
 
-    static int64_t e_(const Generator& a, const Generator& b);
+    static std::int64_t e_(const Generator& a, const Generator& b);
     static bool phase_(const Generator& a, const Generator& b, int phaseRule);
 
     static void swapBit_(BitRef a, BitRef b);

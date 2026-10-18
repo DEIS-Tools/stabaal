@@ -19,14 +19,14 @@ struct TableauTestAccess {
     static void seed(unsigned int value) { Tableau::randomEngine_().seed(value); }
     static BasisTable& comp(Tableau& t) { return t.computational_; }
     static BasisTable& had(Tableau& t) { return t.hadamard_; }
-    static uint64_t qubits(Tableau& t) { return t.qubits_; }
+    static std::uint64_t qubits(Tableau& t) { return t.qubits_; }
 
     static void cleanUp(Tableau& t, int pivot, const Generator& gen) { t.cleanUp_(pivot, gen); }
     static void collapse(Tableau& t, int pivot, bool p) { t.collapse_(pivot, p); }
     static bool randomMeasurement(Tableau& t, int q, Tableau::Basis b) {
         return t.randomMeasurement_(q, b);
     }
-    static int64_t e(Tableau& t, Generator a, Generator b) { return t.e_(a, b); }
+    static std::int64_t e(Tableau& t, Generator a, Generator b) { return t.e_(a, b); }
     static bool phase(Tableau& t, Generator a, Generator b, int rule) {
         return t.phase_(a, b, rule);
     }
@@ -144,7 +144,7 @@ TEST_CASE("Constructor initialises |0...0> tableau", "[tableau][ctor]") {
     auto n = GENERATE(1, 2, 5);
     Tableau t(n);
 
-    REQUIRE(A::qubits(t) == static_cast<uint64_t>(n));
+    REQUIRE(A::qubits(t) == static_cast<std::uint64_t>(n));
     checkSymplectic(t);
 
     for (int i = 0; i < n; ++i) {
@@ -638,7 +638,7 @@ TEST_CASE("add appends a fresh |0> qubit", "[tableau][add]") {
         Tableau t(0);
         for (int n = 1; n <= 4; ++n) {
             t.add();
-            REQUIRE(A::qubits(t) == static_cast<uint64_t>(n));
+            REQUIRE(A::qubits(t) == static_cast<std::uint64_t>(n));
             checkSymplectic(t);
         }
     }

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <random>
 #include <stdexcept>
@@ -9,7 +10,7 @@
 
 #include "generator.hpp"
 
-namespace stabaal {
+using namespace stabaal;
 
 Tableau::Tableau(int qubitCount)
     : computational_(qubitCount, Generator(qubitCount)),
@@ -180,15 +181,16 @@ void Tableau::swapBit_(BitRef a, BitRef b) {
     b = temp;
 }
 
-int64_t Tableau::e_(const Generator& a, const Generator& b) {
-    return static_cast<int64_t>((a.z & a.x).count()) + static_cast<int64_t>((b.z & b.x).count()) +
-           2 * static_cast<int64_t>((a.z & b.x).count()) -
-           static_cast<int64_t>(((a.x ^ b.x) & (a.z ^ b.z)).count());
+std::int64_t Tableau::e_(const Generator& a, const Generator& b) {
+    return static_cast<std::int64_t>((a.z & a.x).count()) +
+           static_cast<std::int64_t>((b.z & b.x).count()) +
+           2 * static_cast<std::int64_t>((a.z & b.x).count()) -
+           static_cast<std::int64_t>(((a.x ^ b.x) & (a.z ^ b.z)).count());
 }
 
 bool Tableau::phase_(const Generator& a, const Generator& b, int phaseRule) {
     const auto val =
-        static_cast<uint64_t>(e_(a, b) + (a.r ? 2 : 0) + (b.r ? 2 : 0) + phaseRule) & 3U;
+        static_cast<std::uint64_t>(e_(a, b) + (a.r ? 2 : 0) + (b.r ? 2 : 0) + phaseRule) & 3U;
     if (val % 2 == 1) {
         throw std::runtime_error(
             "Final phase came out to uneven numbers, meaning there has been a mistake");
@@ -196,5 +198,3 @@ bool Tableau::phase_(const Generator& a, const Generator& b, int phaseRule) {
 
     return val == 2;
 }
-
-}  // namespace stabaal
