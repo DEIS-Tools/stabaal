@@ -3,4 +3,4 @@
 using namespace stabaal;
 
 Generator::Generator() = default;
-Generator::Generator(int qubits) : x(qubits), z(qubits) {}
+Generator::Generator(int qubits) : x_(qubits), z_(qubits) {}

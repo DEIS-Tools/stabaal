@@ -12,136 +12,137 @@
 
 using namespace stabaal;
 
-Tableau::Tableau(int qubitCount)
-    : computational_(qubitCount, Generator(qubitCount)),
-      hadamard_(qubitCount, Generator(qubitCount)),
-      qubits_(qubitCount) {
+Tableau::Tableau(int qubit_count)
+    : computational_(qubit_count, Generator(qubit_count)),
+      hadamard_(qubit_count, Generator(qubit_count)),
+      qubits_(qubit_count) {
     for (auto i = 0; i < qubits_; ++i) {
-        computational_[i].z[i] = true;
-        hadamard_[i].x[i] = true;
+        computational_[i].z_[i] = true;
+        hadamard_[i].x_[i] = true;
     }
 }
 
-std::mt19937& Tableau::randomEngine_() {
+std::mt19937& Tableau::RandomEngine() {
     static thread_local std::mt19937 engine{std::random_device{}()};
     return engine;
 }
 
-void Tableau::add() {
+void Tableau::Add() {
     ++qubits_;
 
     for (auto& gen : computational_) {
-        gen.x.push_back(false);
-        gen.z.push_back(false);
+        gen.x_.push_back(false);
+        gen.z_.push_back(false);
     }
     for (auto& gen : hadamard_) {
-        gen.x.push_back(false);
-        gen.z.push_back(false);
+        gen.x_.push_back(false);
+        gen.z_.push_back(false);
     }
     computational_.emplace_back(qubits_);
     hadamard_.emplace_back(qubits_);
 
     const auto last = qubits_ - 1;
-    computational_[last].z[last] = true;
-    hadamard_[last].x[last] = true;
+    computational_[last].z_[last] = true;
+    hadamard_[last].x_[last] = true;
 }
 
-void Tableau::cleanUp_(int pivot, const Generator& gen) noexcept {
+void Tableau::CleanUp(int pivot, const Generator& gen) noexcept {
     // cx between pivot and all columns with x in the measured row.
     for (auto i = pivot + 1; i < qubits_; ++i) {
-        if (!gen.x[i]) continue;
+        if (!gen.x_[i]) continue;
 
         for (auto j = 0; j < qubits_; ++j) {
-            computational_[j].r =
-                computational_[j].r != (computational_[j].x[pivot] && computational_[j].z[i] &&
-                                        (computational_[j].x[i] == computational_[j].z[pivot]));
-            computational_[j].x[i] ^= computational_[j].x[pivot];
-            computational_[j].z[pivot] ^= computational_[j].z[i];
+            computational_[j].r_ =
+                computational_[j].r_ != (computational_[j].x_[pivot] && computational_[j].z_[i] &&
+                                         (computational_[j].x_[i] == computational_[j].z_[pivot]));
+            computational_[j].x_[i] ^= computational_[j].x_[pivot];
+            computational_[j].z_[pivot] ^= computational_[j].z_[i];
 
-            hadamard_[j].r = hadamard_[j].r != (hadamard_[j].x[pivot] && hadamard_[j].z[i] &&
-                                                (hadamard_[j].x[i] == hadamard_[j].z[pivot]));
-            hadamard_[j].x[i] ^= hadamard_[j].x[pivot];
-            hadamard_[j].z[pivot] ^= hadamard_[j].z[i];
+            hadamard_[j].r_ = hadamard_[j].r_ != (hadamard_[j].x_[pivot] && hadamard_[j].z_[i] &&
+                                                  (hadamard_[j].x_[i] == hadamard_[j].z_[pivot]));
+            hadamard_[j].x_[i] ^= hadamard_[j].x_[pivot];
+            hadamard_[j].z_[pivot] ^= hadamard_[j].z_[i];
         }
     }
-    if (!gen.z[pivot]) return;
+    if (!gen.z_[pivot]) return;
 
     // s^dagger applied to pivot
     for (int i = 0; i < qubits_; ++i) {
-        hadamard_[i].r = hadamard_[i].r != (hadamard_[i].x[pivot] && !hadamard_[i].z[pivot]);
-        hadamard_[i].z[pivot] ^= hadamard_[i].x[pivot];
+        hadamard_[i].r_ = hadamard_[i].r_ != (hadamard_[i].x_[pivot] && !hadamard_[i].z_[pivot]);
+        hadamard_[i].z_[pivot] ^= hadamard_[i].x_[pivot];
 
-        computational_[i].r =
-            computational_[i].r != (computational_[i].x[pivot] && !computational_[i].z[pivot]);
-        computational_[i].z[pivot] ^= computational_[i].x[pivot];
+        computational_[i].r_ =
+            computational_[i].r_ != (computational_[i].x_[pivot] && !computational_[i].z_[pivot]);
+        computational_[i].z_[pivot] ^= computational_[i].x_[pivot];
     }
 }
 
-void Tableau::collapse_(int pivot, bool p) noexcept {
+void Tableau::Collapse(int pivot, bool p) noexcept {
     // Apply X on the pivot when the measured outcome is 1 (p).
     for (int i = 0; i < qubits_; ++i) {
-        swapBit_(computational_[i].x[pivot], computational_[i].z[pivot]);
-        computational_[i].r = computational_[i].r !=
-                              (computational_[i].z[pivot] && (p != computational_[i].x[pivot]));
+        SwapBit(computational_[i].x_[pivot], computational_[i].z_[pivot]);
+        computational_[i].r_ = computational_[i].r_ !=
+                               (computational_[i].z_[pivot] && (p != computational_[i].x_[pivot]));
 
-        swapBit_(hadamard_[i].x[pivot], hadamard_[i].z[pivot]);
-        hadamard_[i].r = hadamard_[i].r != (hadamard_[i].z[pivot] && (p != hadamard_[i].x[pivot]));
+        SwapBit(hadamard_[i].x_[pivot], hadamard_[i].z_[pivot]);
+        hadamard_[i].r_ =
+            hadamard_[i].r_ != (hadamard_[i].z_[pivot] && (p != hadamard_[i].x_[pivot]));
     }
 }
 
-bool Tableau::randomMeasurement_(int q, Basis b) {
-    const auto& gen = (b == Basis::COMPUTATIONAL) ? computational_[q] : hadamard_[q];
+bool Tableau::RandomMeasurement(int q, Basis b) {
+    const auto& gen = (b == Basis::kComputational) ? computational_[q] : hadamard_[q];
     auto pivot = 0;
 
     for (auto i = 0; i < qubits_; ++i) {
-        if (gen.x[i]) {
+        if (gen.x_[i]) {
             pivot = i;
             break;
         }
     }
-    cleanUp_(pivot, gen);
-    const bool p = std::bernoulli_distribution{0.5}(randomEngine_());
-    collapse_(pivot, p);
-    return gen.r;
+    CleanUp(pivot, gen);
+    const bool p = std::bernoulli_distribution{0.5}(RandomEngine());
+    Collapse(pivot, p);
+    return gen.r_;
 }
 
-bool Tableau::measureZ(int q) {
-    if (computational_[q].x.any()) {
-        return randomMeasurement_(q, Basis::COMPUTATIONAL);
+bool Tableau::MeasureZ(int q) {
+    if (computational_[q].x_.any()) {
+        return RandomMeasurement(q, Basis::kComputational);
     }
-    return computational_[q].r;
+    return computational_[q].r_;
 }
 
-bool Tableau::measureX(int q) {
-    if (hadamard_[q].x.any()) {
-        return randomMeasurement_(q, Basis::HADAMARD);
+bool Tableau::MeasureX(int q) {
+    if (hadamard_[q].x_.any()) {
+        return RandomMeasurement(q, Basis::kHadamard);
     }
-    return hadamard_[q].r;
+    return hadamard_[q].r_;
 }
 
-void Tableau::applyH(int q) { std::swap(computational_[q], hadamard_[q]); }
+void Tableau::ApplyH(int q) { std::swap(computational_[q], hadamard_[q]); }
 
-void Tableau::applyCx(int c, int t) {
-    hadamard_[c].r = phase_(hadamard_[c], hadamard_[t], 0);
-    hadamard_[c].x ^= hadamard_[t].x;
-    hadamard_[c].z ^= hadamard_[t].z;
+void Tableau::ApplyCx(int c, int t) {
+    hadamard_[c].r_ = Phase(hadamard_[c], hadamard_[t], 0);
+    hadamard_[c].x_ ^= hadamard_[t].x_;
+    hadamard_[c].z_ ^= hadamard_[t].z_;
 
-    computational_[t].r = phase_(computational_[c], computational_[t], 0);
-    computational_[t].x ^= computational_[c].x;
-    computational_[t].z ^= computational_[c].z;
+    computational_[t].r_ = Phase(computational_[c], computational_[t], 0);
+    computational_[t].x_ ^= computational_[c].x_;
+    computational_[t].z_ ^= computational_[c].z_;
 }
 
-void Tableau::applyX(int q) noexcept { computational_[q].r = !computational_[q].r; }
+void Tableau::ApplyX(int q) noexcept { computational_[q].r_ = !computational_[q].r_; }
 
-void Tableau::applyS(int q) {
-    hadamard_[q].r = phase_(hadamard_[q], computational_[q], 3);
-    hadamard_[q].x ^= computational_[q].x;
-    hadamard_[q].z ^= computational_[q].z;
+void Tableau::ApplyS(int q) {
+    hadamard_[q].r_ = Phase(hadamard_[q], computational_[q], 3);
+    hadamard_[q].x_ ^= computational_[q].x_;
+    hadamard_[q].z_ ^= computational_[q].z_;
 }
 
-void Tableau::applyZ(int q) noexcept { hadamard_[q].r = !hadamard_[q].r; }
+void Tableau::ApplyZ(int q) noexcept { hadamard_[q].r_ = !hadamard_[q].r_; }
 
-void Tableau::print() const {
+void Tableau::Print() const {
     for (size_t j = 0; j < qubits_; ++j) {
         std::cout << (j == 0 ? "\n    | " : "") << "x" << (j == qubits_ - 1 ? " | " : " ");
     }
@@ -152,45 +153,45 @@ void Tableau::print() const {
 
     for (size_t i = 0; i < qubits_; ++i) {
         for (size_t j = 0; j < qubits_; ++j) {
-            std::cout << (j == 0 ? "\nX" + std::to_string(i) + ": | " : "") << hadamard_[i].x[j]
+            std::cout << (j == 0 ? "\nX" + std::to_string(i) + ": | " : "") << hadamard_[i].x_[j]
                       << (j == qubits_ - 1 ? " | " : " ");
         }
         for (size_t j = 0; j < qubits_; ++j) {
-            std::cout << hadamard_[i].z[j] << (j == qubits_ - 1 ? " | " : " ");
+            std::cout << hadamard_[i].z_[j] << (j == qubits_ - 1 ? " | " : " ");
         }
-        std::cout << hadamard_[i].r << " |";
+        std::cout << hadamard_[i].r_ << " |";
     }
 
     for (size_t i = 0; i < qubits_; ++i) {
         for (size_t j = 0; j < qubits_; ++j) {
             std::cout << (j == 0 ? "\nZ" + std::to_string(i) + ": | " : "")
-                      << computational_[i].x[j] << (j == qubits_ - 1 ? " | " : " ");
+                      << computational_[i].x_[j] << (j == qubits_ - 1 ? " | " : " ");
         }
         for (size_t j = 0; j < qubits_; ++j) {
-            std::cout << computational_[i].z[j] << (j == qubits_ - 1 ? " | " : " ");
+            std::cout << computational_[i].z_[j] << (j == qubits_ - 1 ? " | " : " ");
         }
 
-        std::cout << computational_[i].r << " |";
+        std::cout << computational_[i].r_ << " |";
     }
     std::cout << '\n';
 }
 
-void Tableau::swapBit_(BitRef a, BitRef b) noexcept {
+void Tableau::SwapBit(BitRef a, BitRef b) noexcept {
     const bool temp = a;
     a = b;
     b = temp;
 }
 
-std::int64_t Tableau::e_(const Generator& a, const Generator& b) {
-    return static_cast<std::int64_t>((a.z & a.x).count()) +
-           static_cast<std::int64_t>((b.z & b.x).count()) +
-           2 * static_cast<std::int64_t>((a.z & b.x).count()) -
-           static_cast<std::int64_t>(((a.x ^ b.x) & (a.z ^ b.z)).count());
+std::int64_t Tableau::E(const Generator& a, const Generator& b) {
+    return static_cast<std::int64_t>((a.z_ & a.x_).count()) +
+           static_cast<std::int64_t>((b.z_ & b.x_).count()) +
+           2 * static_cast<std::int64_t>((a.z_ & b.x_).count()) -
+           static_cast<std::int64_t>(((a.x_ ^ b.x_) & (a.z_ ^ b.z_)).count());
 }
 
-bool Tableau::phase_(const Generator& a, const Generator& b, int phaseRule) {
+bool Tableau::Phase(const Generator& a, const Generator& b, int phase_rule) {
     const auto val =
-        static_cast<std::uint64_t>(e_(a, b) + (a.r ? 2 : 0) + (b.r ? 2 : 0) + phaseRule) & 3U;
+        static_cast<std::uint64_t>(E(a, b) + (a.r_ ? 2 : 0) + (b.r_ ? 2 : 0) + phase_rule) & 3U;
     assert(val % 2 == 0);  // NOLINT(misc-static-assert)
     return val == 2;
 }

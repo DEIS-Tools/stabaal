@@ -17,43 +17,43 @@ using BasisTable = std::vector<Generator>;
 class Tableau {
    public:
     enum class Basis : std::uint8_t {
-        COMPUTATIONAL,
-        HADAMARD,
-        IMAGINARY,
+        kComputational,
+        kHadamard,
+        kImaginary,
     };
 
-    explicit Tableau(int qubitCount);
+    explicit Tableau(int qubit_count);
 
-    void add();
+    void Add();
 
-    bool measureZ(int q);
-    bool measureX(int q);
+    bool MeasureZ(int q);
+    bool MeasureX(int q);
 
-    void applyH(int q);
-    void applyCx(int c, int t);
-    void applyX(int q) noexcept;
-    void applyS(int q);
-    void applyZ(int q) noexcept;
+    void ApplyH(int q);
+    void ApplyCx(int c, int t);
+    void ApplyX(int q) noexcept;
+    void ApplyS(int q);
+    void ApplyZ(int q) noexcept;
 
-    void print() const;
+    void Print() const;
 
    private:
     friend struct TableauTestAccess;
 
-    static std::mt19937& randomEngine_();
+    static std::mt19937& RandomEngine();
 
     BasisTable computational_;
     BasisTable hadamard_;
     std::uint64_t qubits_;
 
-    void cleanUp_(int pivot, const Generator& gen) noexcept;
-    void collapse_(int pivot, bool p) noexcept;
-    bool randomMeasurement_(int q, Basis b);
+    void CleanUp(int pivot, const Generator& gen) noexcept;
+    void Collapse(int pivot, bool p) noexcept;
+    bool RandomMeasurement(int q, Basis b);
 
-    static std::int64_t e_(const Generator& a, const Generator& b);
-    static bool phase_(const Generator& a, const Generator& b, int phaseRule);
+    static std::int64_t E(const Generator& a, const Generator& b);
+    static bool Phase(const Generator& a, const Generator& b, int phase_rule);
 
-    static void swapBit_(BitRef a, BitRef b) noexcept;
+    static void SwapBit(BitRef a, BitRef b) noexcept;
 };
 
 }  // namespace stabaal

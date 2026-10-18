@@ -10,9 +10,9 @@ class Generator {
     Generator();
     explicit Generator(int qubits);
 
-    boost::dynamic_bitset<> x;
-    boost::dynamic_bitset<> z;
-    bool r = false;
+    boost::dynamic_bitset<> x_;
+    boost::dynamic_bitset<> z_;
+    bool r_ = false;
 };
 
 }  // namespace stabaal
