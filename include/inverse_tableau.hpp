@@ -24,6 +24,12 @@ class InverseTableau {
 
     explicit InverseTableau(QubitIdx num_qubits);
 
+    InverseTableau(const InverseTableau& other);
+    InverseTableau& operator=(const InverseTableau& other);
+    InverseTableau(InverseTableau&& other) noexcept = default;
+    InverseTableau& operator=(InverseTableau&& other) noexcept = default;
+    ~InverseTableau() noexcept = default;
+
     void Add();
 
     bool MeasureZ(QubitIdx q);

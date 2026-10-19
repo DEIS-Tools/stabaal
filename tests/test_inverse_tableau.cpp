@@ -290,12 +290,10 @@ TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[inverse
 
 TEST_CASE("BasisTable appends identity rows and positive signs", "[basis][add]") {
     BasisTable table{2};
-    REQUIRE(table.gens.size() == 2);
-    CHECK_FALSE(table.signs.Any(table.gens.size()));
+    CHECK_FALSE(table.signs.Any(2));
     table.gens[0].SetX(0);
     table.signs.Set(0, true);
-    table.Add();
-    REQUIRE(table.gens.size() == 3);
+    table.Add(2);
     CHECK(table.signs.Get(0));
     CHECK_FALSE(table.signs.Get(1));
     CHECK_FALSE(table.signs.Get(2));
@@ -304,16 +302,56 @@ TEST_CASE("BasisTable appends identity rows and positive signs", "[basis][add]")
     CHECK(Str(table.gens[2], 3, table.signs.Get(2)) == "+III");
 }
 
+TEST_CASE("BasisTable growth reuses capacity and preserves rows", "[basis][growth]") {
+    BasisTable table{0};
+    CHECK_FALSE(table.gens);
+    CHECK(BasisTable::AllocatedBytes(0) == 0);
+    for (std::size_t n{0}; n < 130; ++n) {
+        const auto* previous{table.gens.get()};
+        table.Add(n);
+        if (n != 0 && (n & (n - 1)) != 0) CHECK(table.gens.get() == previous);
+        for (std::size_t row{0}; row <= n; ++row) {
+            CHECK(table.signs.Get(row) == (row < n));
+            for (std::size_t col{0}; col <= n; ++col) {
+                CHECK(table.gens[row].GetX(col) == (row < n && row == col));
+                CHECK_FALSE(table.gens[row].GetZ(col));
+            }
+        }
+        table.gens[n].SetX(n);
+        table.signs.Set(n);
+    }
+}
+
+TEST_CASE("InverseTableau copies remain independent after growth", "[inverse_tableau][copy]") {
+    const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65})};
+    InverseTableau original{n};
+    original.Add();
+    original.ApplyX(n);
+    InverseTableau copy{original};
+    InverseTableau assigned{0};
+    assigned = original;
+    original.ApplyX(n);
+    CHECK_FALSE(original.MeasureZ(n));
+    CHECK(copy.MeasureZ(n));
+    CHECK(assigned.MeasureZ(n));
+    copy.Add();
+    assigned.Add();
+    CHECK_FALSE(copy.MeasureZ(n + 1));
+    CHECK_FALSE(assigned.MeasureZ(n + 1));
+    CHECK(copy.MeasureZ(n));
+    CHECK(assigned.MeasureZ(n));
+}
+
 TEST_CASE("BasisTable copies preserve independent signs and rows", "[basis][copy]") {
     const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65})};
     BasisTable original{n};
-    original.Add();
+    original.Add(n);
     original.signs.Set(n);
     original.gens[n].SetX(n);
 
-    BasisTable copy{original};
+    BasisTable copy{original, n + 1};
     BasisTable assigned{0};
-    assigned = original;
+    assigned = BasisTable{original, n + 1};
     original.signs.Set(n, false);
     original.gens[n].SetX(n, false);
     CHECK(copy.signs.Get(n));
@@ -323,11 +361,11 @@ TEST_CASE("BasisTable copies preserve independent signs and rows", "[basis][copy
 
     BasisTable moved{std::move(copy)};
     CHECK(moved.signs.Get(n));
-    copy.Add();
+    copy.Add(0);
     CHECK_FALSE(copy.signs.Get(0));
     assigned = std::move(moved);
     CHECK(assigned.gens[n].GetX(n));
-    moved.Add();
+    moved.Add(0);
     CHECK_FALSE(moved.signs.Get(0));
 }
 

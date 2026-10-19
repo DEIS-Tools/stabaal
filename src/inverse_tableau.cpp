@@ -23,15 +23,25 @@ InverseTableau::InverseTableau(const QubitIdx num_qubits)
     }
 }
 
+InverseTableau::InverseTableau(const InverseTableau& other)
+    : computational_{other.computational_, other.num_qubits_},
+      hadamard_{other.hadamard_, other.num_qubits_},
+      num_qubits_{other.num_qubits_} {}
+
+InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
+    if (this != &other) *this = InverseTableau{other};
+    return *this;
+}
+
 std::mt19937& InverseTableau::RandomEngine() {
     static thread_local std::mt19937 engine{std::random_device{}()};
     return engine;
 }
 
 void InverseTableau::Add() {
+    computational_.Add(num_qubits_);
+    hadamard_.Add(num_qubits_);
     ++num_qubits_;
-    computational_.Add();
-    hadamard_.Add();
 
     const auto last{num_qubits_ - 1};
     computational_.gens[last].SetZ(last);
@@ -189,7 +199,7 @@ void InverseTableau::ApplyZ(const QubitIdx q) {
 }
 
 std::size_t InverseTableau::MemoryUsage() const noexcept {
-    return sizeof(*this) + computational_.AllocatedBytes() + hadamard_.AllocatedBytes();
+    return sizeof(*this) + 2 * BasisTable::AllocatedBytes(num_qubits_);
 }
 
 void InverseTableau::Print() const {

@@ -6,9 +6,10 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
-#include <memory>
 #include <span>
 #include <utility>
+
+#include "types.hpp"
 
 using namespace stabaal;
 
@@ -28,11 +29,8 @@ constexpr std::size_t CapacityWords(const std::size_t num_bits) noexcept {
 
 DynamicBitset::DynamicBitset() noexcept = default;
 
-DynamicBitset::DynamicBitset(const std::size_t num_bits) {
-    const auto num_words{CapacityWords(num_bits)};
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-    if (num_words != 0) words_ = std::make_unique<std::uint64_t[]>(num_words);
-}
+DynamicBitset::DynamicBitset(const std::size_t num_bits)
+    : words_{MakeDynamicArray<std::uint64_t>(CapacityWords(num_bits))} {}
 
 DynamicBitset::DynamicBitset(const DynamicBitset& other, const std::size_t num_bits)
     : DynamicBitset{num_bits} {
