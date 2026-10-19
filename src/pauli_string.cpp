@@ -39,6 +39,7 @@ void PauliString::SwapXZ(const QubitIdx idx) noexcept {
     z_.Set(idx, x);
 }
 
+__attribute__((target_clones("popcnt", "default")))
 std::int64_t PauliString::XorWithPhase(const PauliString& other) noexcept {
     assert(Size() == other.Size());
     const auto x{x_.Words()};
@@ -49,29 +50,12 @@ std::int64_t PauliString::XorWithPhase(const PauliString& other) noexcept {
     for (std::size_t i{0}; i < x.size(); ++i) {
         const auto new_x{x[i] ^ other_x[i]};
         const auto new_z{z[i] ^ other_z[i]};
-        exponent += FastPopCount(z[i] & x[i]) + FastPopCount(other_z[i] & other_x[i]) +
-                    2 * FastPopCount(z[i] & other_x[i]) - FastPopCount(new_x & new_z);
+        exponent += std::popcount(z[i] & x[i]) + std::popcount(other_z[i] & other_x[i]) +
+                    2 * std::popcount(z[i] & other_x[i]) - std::popcount(new_x & new_z);
         x[i] = new_x;
         z[i] = new_z;
     }
+
     return exponent;
 }
 
-std::uint64_t PauliString::PopCount(const std::uint64_t word) const noexcept {
-    __builtin_cpu_init();
-    if (__builtin_cpu_supports("popcnt")) {
-        return FastPopCount(word);
-    }
-
-    return NormalPopCount(word);
-}
-
-__attribute__((target("popcnt")))
-std::uint64_t PauliString::FastPopCount(const std::uint64_t word) const noexcept {
-    return std::popcount(word);
-}
-
-__attribute__((target("default")))
-std::uint64_t PauliString::NormalPopCount(const std::uint64_t word) const noexcept {
-    return std::popcount(word);
-}
