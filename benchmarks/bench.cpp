@@ -67,7 +67,8 @@ int main(int argc, char** argv) {
                 const auto q{qubit(rng)};
                 auto target{qubit(rng)};
                 if (target == q) target = (q + 1) % qubits;
-                circuit.push_back({static_cast<GateKind>(rng() % (qubits == 1 ? 4 : 5)), q, target});
+                circuit.push_back(
+                    {static_cast<GateKind>(rng() % (qubits == 1 ? 4 : 5)), q, target});
             }
 
             stabaal::InverseTableau tableau{qubits};

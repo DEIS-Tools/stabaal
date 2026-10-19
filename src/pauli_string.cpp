@@ -39,8 +39,8 @@ void PauliString::SwapXZ(const QubitIdx idx) noexcept {
     z_.Set(idx, x);
 }
 
-__attribute__((target_clones("popcnt", "default")))
-std::int64_t PauliString::XorWithPhase(const PauliString& other) noexcept {
+__attribute__((target_clones("popcnt", "default"))) std::int64_t PauliString::XorWithPhase(
+    const PauliString& other) noexcept {
     assert(Size() == other.Size());
     const auto x{x_.Words()};
     const auto z{z_.Words()};
@@ -58,4 +58,3 @@ std::int64_t PauliString::XorWithPhase(const PauliString& other) noexcept {
 
     return exponent;
 }
-

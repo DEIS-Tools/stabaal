@@ -21,9 +21,9 @@ void BasisTable::Add() {
 
 std::size_t BasisTable::AllocatedBytes() const noexcept {
     auto bytes{gens.capacity() * sizeof(PauliString) + signs.AllocatedBytes()};
-    for (const auto& gen : gens)  {
+    for (const auto& gen : gens) {
         bytes += gen.AllocatedBytes();
     }
-    
+
     return bytes;
 }
