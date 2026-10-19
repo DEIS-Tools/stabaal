@@ -291,19 +291,36 @@ TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[inverse
 TEST_CASE("BasisTable appends identity rows and positive signs", "[basis][add]") {
     BasisTable table{2};
     REQUIRE(table.gens.size() == 2);
-    REQUIRE(table.signs.Size() == 2);
     CHECK_FALSE(table.signs.Any());
     table.gens[0].SetX(0);
     table.signs.Set(0, true);
     table.Add();
     REQUIRE(table.gens.size() == 3);
-    REQUIRE(table.signs.Size() == 3);
     CHECK(table.signs.Get(0));
     CHECK_FALSE(table.signs.Get(1));
     CHECK_FALSE(table.signs.Get(2));
     CHECK(Str(table.gens[0], table.signs.Get(0)) == "-XII");
     CHECK(Str(table.gens[1], table.signs.Get(1)) == "+III");
     CHECK(Str(table.gens[2], table.signs.Get(2)) == "+III");
+}
+
+TEST_CASE("PauliString grows across word boundaries", "[pauli][growth]") {
+    const auto n{GENERATE(0, 1, 31, 32, 33, 63, 64, 65, 127, 128, 129)};
+    auto g{Pauli(std::string(n, 'Z'))};
+    CHECK_FALSE(g.AnyX());
+    g.AddI();
+    REQUIRE(g.Size() == n + 1);
+    CHECK(Str(g) == "+" + std::string(n, 'Z') + "I");
+    g.SetX(n);
+    CHECK(g.AnyX());
+    g.SwapXZ(n);
+    CHECK_FALSE(g.AnyX());
+    CHECK(g.GetZ(n));
+    g.SetZ(n, false);
+    CHECK(Str(g) == "+" + std::string(n, 'Z') + "I");
+    g.SetX(n);
+    g.SetX(n, false);
+    CHECK_FALSE(g.AnyX());
 }
 
 TEST_CASE("PauliString swaps X/Z components", "[pauli][swap]") {

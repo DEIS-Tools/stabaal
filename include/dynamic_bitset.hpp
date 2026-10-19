@@ -18,18 +18,16 @@ class DynamicBitset {
     DynamicBitset& operator=(DynamicBitset&& other) noexcept;
     ~DynamicBitset() noexcept;
 
-    std::size_t Size() const noexcept;
     std::size_t AllocatedBytes() const noexcept;
     bool Any() const noexcept;
     bool Get(std::size_t idx) const noexcept;
     void Set(std::size_t idx, bool value = true) noexcept;
-    void PushBack(bool value = false);
+    void Resize(std::size_t num_bits);
     std::span<std::uint64_t> Words() noexcept;
     std::span<const std::uint64_t> Words() const noexcept;
 
    private:
     std::vector<std::uint64_t> words_;
-    std::size_t num_bits_;
 };
 
 }  // namespace stabaal

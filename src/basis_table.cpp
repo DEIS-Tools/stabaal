@@ -16,7 +16,7 @@ void BasisTable::Add() {
     }
 
     gens.emplace_back(static_cast<QubitIdx>(gens.size() + 1));
-    signs.PushBack();
+    signs.Resize(gens.size());
 }
 
 std::size_t BasisTable::AllocatedBytes() const noexcept {
