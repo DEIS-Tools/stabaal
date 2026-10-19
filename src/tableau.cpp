@@ -155,3 +155,5 @@ bool Tableau::phase(const Generator& a, const Generator& b, int phase_rule) {
         throw std::runtime_error("Final phase came out to uneven numbers, meaning there has been a mistake");
     return val == 2;
 }
+
+uint64_t Tableau::get_qubits() const { return qubits; }
