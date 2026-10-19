@@ -10,6 +10,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "basis_table.hpp"
@@ -291,7 +292,7 @@ TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[inverse
 TEST_CASE("BasisTable appends identity rows and positive signs", "[basis][add]") {
     BasisTable table{2};
     REQUIRE(table.gens.size() == 2);
-    CHECK_FALSE(table.signs.Any());
+    CHECK_FALSE(table.signs.Any(table.gens.size()));
     table.gens[0].SetX(0);
     table.signs.Set(0, true);
     table.Add();
@@ -302,6 +303,59 @@ TEST_CASE("BasisTable appends identity rows and positive signs", "[basis][add]")
     CHECK(Str(table.gens[0], table.signs.Get(0)) == "-XII");
     CHECK(Str(table.gens[1], table.signs.Get(1)) == "+III");
     CHECK(Str(table.gens[2], table.signs.Get(2)) == "+III");
+}
+
+TEST_CASE("BasisTable copies preserve independent signs and rows", "[basis][copy]") {
+    const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65})};
+    BasisTable original{n};
+    original.Add();
+    original.signs.Set(n);
+    original.gens[n].SetX(n);
+
+    BasisTable copy{original};
+    BasisTable assigned{0};
+    assigned = original;
+    original.signs.Set(n, false);
+    original.gens[n].SetX(n, false);
+    CHECK(copy.signs.Get(n));
+    CHECK(copy.gens[n].GetX(n));
+    CHECK(assigned.signs.Get(n));
+    CHECK(assigned.gens[n].GetX(n));
+
+    BasisTable moved{std::move(copy)};
+    CHECK(moved.signs.Get(n));
+    copy.Add();
+    CHECK_FALSE(copy.signs.Get(0));
+    assigned = std::move(moved);
+    CHECK(assigned.gens[n].GetX(n));
+    moved.Add();
+    CHECK_FALSE(moved.signs.Get(0));
+}
+
+TEST_CASE("PauliString copies and moves preserve storage ownership", "[pauli][copy]") {
+    const auto n{GENERATE(0, 64, 65, 129)};
+    auto original{Pauli(std::string(n, 'Z'))};
+    PauliString copy{original};
+    PauliString assigned;
+    assigned = original;
+    original.AddI();
+    CHECK(Str(copy) == "+" + std::string(n, 'Z'));
+    CHECK(Str(assigned) == Str(copy));
+
+    PauliString moved{std::move(copy)};
+    CHECK(Str(moved) == Str(assigned));
+    CHECK(copy.Size() == 0);
+    copy.AddI();
+    CHECK(Str(copy) == "+I");
+    assigned = std::move(moved);
+    CHECK(Str(assigned) == "+" + std::string(n, 'Z'));
+    CHECK(moved.Size() == 0);
+    moved.AddI();
+    CHECK(Str(moved) == "+I");
+    if (n != 0) {
+        assigned.SetX(n - 1);
+        CHECK_FALSE(original.GetX(n - 1));
+    }
 }
 
 TEST_CASE("PauliString grows across word boundaries", "[pauli][growth]") {

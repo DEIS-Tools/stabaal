@@ -13,6 +13,11 @@ class PauliString {
     PauliString() noexcept;
     explicit PauliString(QubitIdx num_qubits);
 
+    PauliString(const PauliString& other);
+    PauliString& operator=(const PauliString& other);
+    PauliString(PauliString&& other) noexcept;
+    PauliString& operator=(PauliString&& other) noexcept;
+
     void AddI();
 
     std::size_t Size() const noexcept;
@@ -29,6 +34,7 @@ class PauliString {
     std::int64_t XorWithPhase(const PauliString& other) noexcept;
 
    private:
+    static std::size_t BitsRequired(std::size_t num_qubits) noexcept;
     static std::size_t GetXIdx(QubitIdx idx) noexcept;
     static std::size_t GetZIdx(QubitIdx idx) noexcept;
 

@@ -13,6 +13,11 @@ namespace stabaal {
 struct BasisTable {
     explicit BasisTable(QubitIdx num_qubits);
 
+    BasisTable(const BasisTable& other);
+    BasisTable& operator=(const BasisTable& other);
+    BasisTable(BasisTable&& other) noexcept = default;
+    BasisTable& operator=(BasisTable&& other) noexcept = default;
+
     void Add();
     std::size_t AllocatedBytes() const noexcept;
 
