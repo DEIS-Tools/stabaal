@@ -5,10 +5,10 @@ BENCH_ARGS ?= 256 1000000 10
 .PHONY: release debug flamegraph lint format
 
 release debug:
-	cmake --workflow $@
+	cmake --workflow --preset $@
 
 flamegraph:
-	cmake --workflow profile
+	cmake --workflow --preset profile
 	cd build/profile && flamegraph -c "record -F 997 -e cpu-clock:u --call-graph dwarf" -o flamegraph.svg -- ./stabaal_bench $(BENCH_ARGS)
 	cp build/profile/flamegraph.svg flamegraph.svg
 
