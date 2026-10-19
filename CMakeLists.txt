@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.31)
+cmake_minimum_required(VERSION 3.28)
 project(STABAAL LANGUAGES CXX)
 
 if(CMAKE_INTERPROCEDURAL_OPTIMIZATION)
