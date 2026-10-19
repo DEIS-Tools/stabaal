@@ -15,11 +15,11 @@ TEST_CASE("DynamicBitset starts zero with packed storage", "[bitset]") {
     const DynamicBitset bits{static_cast<std::size_t>(n)};
     CHECK(bits.Words(n).size() == (n + 63) / 64);
     const auto used_bytes{bits.Words(n).size() * sizeof(std::uint64_t)};
-    CHECK(bits.AllocatedBytes(n) >= used_bytes);
+    CHECK(DynamicBitset::AllocatedBytes(n) >= used_bytes);
     if (n == 0) {
-        CHECK(bits.AllocatedBytes(n) == 0);
+        CHECK(DynamicBitset::AllocatedBytes(n) == 0);
     } else {
-        CHECK(bits.AllocatedBytes(n) < 2 * used_bytes);
+        CHECK(DynamicBitset::AllocatedBytes(n) < 2 * used_bytes);
     }
     CHECK_FALSE(bits.Any(n));
     for (std::size_t i{0}; i < static_cast<std::size_t>(n); ++i) CHECK_FALSE(bits.Get(i));
@@ -65,7 +65,7 @@ TEST_CASE("DynamicBitset copies own their storage and moved-from objects can gro
     REQUIRE(moved.Words(65).size() == 2);
     CHECK(moved.Get(64));
     CHECK(original.Words(0).data() == nullptr);
-    CHECK(original.AllocatedBytes(0) == 0);
+    CHECK(DynamicBitset::AllocatedBytes(0) == 0);
     original.Resize(0, 1);
     original.Set(0);
     REQUIRE(original.Words(1).size() == 1);
@@ -93,12 +93,12 @@ TEST_CASE("DynamicBitset growth preserves bits and zeroes new words", "[bitset]"
     CHECK_FALSE(bits.Get(128));
     bits.Set(128);
     bits.Resize(129, 64);
-    CHECK(bits.AllocatedBytes(64) == sizeof(std::uint64_t));
+    CHECK(DynamicBitset::AllocatedBytes(64) == sizeof(std::uint64_t));
     bits.Resize(64, 129);
     CHECK(bits.Get(0));
     CHECK_FALSE(bits.Get(128));
     bits.Resize(129, 0);
-    CHECK(bits.AllocatedBytes(0) == 0);
+    CHECK(DynamicBitset::AllocatedBytes(0) == 0);
     CHECK_FALSE(bits.Any(0));
     const DynamicBitset empty_copy{bits, 0};
     CHECK(empty_copy.Words(0).empty());
@@ -108,12 +108,12 @@ TEST_CASE("DynamicBitset reuses geometric capacity and clears truncated words", 
     DynamicBitset bits{129};
     bits.Set(128);
     const auto* storage{bits.Words(129).data()};
-    CHECK(bits.AllocatedBytes(129) == 32);
+    CHECK(DynamicBitset::AllocatedBytes(129) == 32);
     REQUIRE(bits.Words(129).size() == 3);
 
     bits.Resize(129, 193);
     CHECK(bits.Words(193).data() == storage);
-    CHECK(bits.AllocatedBytes(193) == 32);
+    CHECK(DynamicBitset::AllocatedBytes(193) == 32);
     CHECK(bits.Get(128));
     CHECK_FALSE(bits.Get(192));
     bits.Set(192);
@@ -125,7 +125,7 @@ TEST_CASE("DynamicBitset reuses geometric capacity and clears truncated words", 
 
     DynamicBitset copy{bits, 193};
     copy.Resize(193, 257);
-    CHECK(copy.AllocatedBytes(257) == 64);
+    CHECK(DynamicBitset::AllocatedBytes(257) == 64);
     CHECK(copy.Get(128));
     CHECK_FALSE(copy.Get(192));
     CHECK_FALSE(copy.Get(256));

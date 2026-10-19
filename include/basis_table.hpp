@@ -18,6 +18,8 @@ struct BasisTable {
     BasisTable(BasisTable&& other) noexcept = default;
     BasisTable& operator=(BasisTable&& other) noexcept = default;
 
+    ~BasisTable() noexcept = default;
+
     void Add();
     std::size_t AllocatedBytes() const noexcept;
 

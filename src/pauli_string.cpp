@@ -1,55 +1,31 @@
 #include "pauli_string.hpp"
 
 #include <bit>
-#include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <utility>
 
 #include "types.hpp"
 
 using namespace stabaal;
 
 PauliString::PauliString() noexcept = default;
-PauliString::PauliString(const QubitIdx num_qubits)
-    : xz_{BitsRequired(num_qubits)}, num_qubits_{num_qubits} {}
+PauliString::PauliString(const std::size_t num_qubits) : xz_{BitsRequired(num_qubits)} {}
 
-PauliString::PauliString(const PauliString& other)
-    : xz_{other.xz_, BitsRequired(other.num_qubits_)}, num_qubits_{other.num_qubits_} {}
+PauliString::PauliString(const PauliString& other, const std::size_t num_qubits)
+    : xz_{other.xz_, BitsRequired(num_qubits)} {}
 
-PauliString& PauliString::operator=(const PauliString& other) {
-    if (this != &other) *this = PauliString{other};
-    return *this;
-}
-
-PauliString::PauliString(PauliString&& other) noexcept
-    : xz_{std::move(other.xz_)}, num_qubits_{std::exchange(other.num_qubits_, 0)} {}
-
-PauliString& PauliString::operator=(PauliString&& other) noexcept {
-    if (this != &other) {
-        xz_ = std::move(other.xz_);
-        num_qubits_ = std::exchange(other.num_qubits_, 0);
+void PauliString::AddI(const std::size_t old_num_qubits) {
+    if (old_num_qubits % kQubitsPerWord == 0) {
+        xz_.Resize(BitsRequired(old_num_qubits), BitsRequired(old_num_qubits + 1));
     }
-    
-    return *this;
 }
 
-void PauliString::AddI() {
-    if (num_qubits_ % kQubitsPerWord == 0) {
-        xz_.Resize(BitsRequired(num_qubits_), BitsRequired(num_qubits_ + 1));
-    }
-
-    ++num_qubits_;
+std::size_t PauliString::AllocatedBytes(const std::size_t num_qubits) noexcept {
+    return DynamicBitset::AllocatedBytes(BitsRequired(num_qubits));
 }
 
-std::size_t PauliString::Size() const noexcept { return num_qubits_; }
-
-std::size_t PauliString::AllocatedBytes() const noexcept {
-    return xz_.AllocatedBytes(BitsRequired(num_qubits_));
-}
-
-bool PauliString::AnyX() const noexcept {
-    const auto words{xz_.Words(BitsRequired(num_qubits_))};
+bool PauliString::AnyX(const std::size_t num_qubits) const noexcept {
+    const auto words{xz_.Words(BitsRequired(num_qubits))};
     for (std::size_t i{0}; i < words.size(); i += 2) {
         if (words[i] != 0) return true;
     }
@@ -57,25 +33,13 @@ bool PauliString::AnyX() const noexcept {
     return false;
 }
 
-bool PauliString::GetX(const QubitIdx idx) const noexcept {
-    assert(idx < num_qubits_);
-    return xz_.Get(GetXIdx(idx));
-}
+bool PauliString::GetX(const QubitIdx idx) const noexcept { return xz_.Get(GetXIdx(idx)); }
 
-bool PauliString::GetZ(const QubitIdx idx) const noexcept {
-    assert(idx < num_qubits_);
-    return xz_.Get(GetZIdx(idx));
-}
+bool PauliString::GetZ(const QubitIdx idx) const noexcept { return xz_.Get(GetZIdx(idx)); }
 
-void PauliString::SetX(const QubitIdx idx, const bool val) noexcept {
-    assert(idx < num_qubits_);
-    xz_.Set(GetXIdx(idx), val);
-}
+void PauliString::SetX(const QubitIdx idx, const bool val) noexcept { xz_.Set(GetXIdx(idx), val); }
 
-void PauliString::SetZ(const QubitIdx idx, const bool val) noexcept {
-    assert(idx < num_qubits_);
-    xz_.Set(GetZIdx(idx), val);
-}
+void PauliString::SetZ(const QubitIdx idx, const bool val) noexcept { xz_.Set(GetZIdx(idx), val); }
 
 void PauliString::SwapXZ(const QubitIdx idx) noexcept {
     const bool x{GetX(idx)};
@@ -84,10 +48,9 @@ void PauliString::SwapXZ(const QubitIdx idx) noexcept {
 }
 
 __attribute__((target_clones("popcnt", "default"))) std::int64_t PauliString::XorWithPhase(
-    const PauliString& other) noexcept {
-    assert(Size() == other.Size());
-    const auto words{xz_.Words(BitsRequired(num_qubits_))};
-    const auto other_words{other.xz_.Words(BitsRequired(other.num_qubits_))};
+    const PauliString& other, const std::size_t num_qubits) noexcept {
+    const auto words{xz_.Words(BitsRequired(num_qubits))};
+    const auto other_words{other.xz_.Words(BitsRequired(num_qubits))};
     std::int64_t exponent{0};
     for (std::size_t i{0}; i < words.size(); i += 2) {
         const auto x{words[i]};

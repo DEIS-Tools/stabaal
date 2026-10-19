@@ -11,18 +11,20 @@ namespace stabaal {
 class PauliString {
    public:
     PauliString() noexcept;
-    explicit PauliString(QubitIdx num_qubits);
+    explicit PauliString(std::size_t num_qubits);
 
-    PauliString(const PauliString& other);
-    PauliString& operator=(const PauliString& other);
-    PauliString(PauliString&& other) noexcept;
-    PauliString& operator=(PauliString&& other) noexcept;
+    PauliString(const PauliString& other, std::size_t num_qubits);
+    PauliString(const PauliString& other) = delete;
+    PauliString& operator=(const PauliString& other) = delete;
+    PauliString(PauliString&& other) noexcept = default;
+    PauliString& operator=(PauliString&& other) noexcept = default;
 
-    void AddI();
+    ~PauliString() noexcept = default;
 
-    std::size_t Size() const noexcept;
-    std::size_t AllocatedBytes() const noexcept;
-    bool AnyX() const noexcept;
+    void AddI(std::size_t old_num_qubits);
+
+    static std::size_t AllocatedBytes(std::size_t num_qubits) noexcept;
+    bool AnyX(std::size_t num_qubits) const noexcept;
 
     bool GetX(QubitIdx idx) const noexcept;
     bool GetZ(QubitIdx idx) const noexcept;
@@ -31,7 +33,7 @@ class PauliString {
     void SetZ(QubitIdx idx, bool val = true) noexcept;
     void SwapXZ(QubitIdx idx) noexcept;
 
-    std::int64_t XorWithPhase(const PauliString& other) noexcept;
+    std::int64_t XorWithPhase(const PauliString& other, std::size_t num_qubits) noexcept;
 
    private:
     static std::size_t BitsRequired(std::size_t num_qubits) noexcept;
@@ -39,7 +41,6 @@ class PauliString {
     static std::size_t GetZIdx(QubitIdx idx) noexcept;
 
     DynamicBitset xz_;
-    std::size_t num_qubits_{0};
 
     static constexpr std::size_t kQubitsPerWord{64};
 };

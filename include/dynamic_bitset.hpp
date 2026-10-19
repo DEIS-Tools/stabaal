@@ -3,8 +3,9 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <memory>
 #include <span>
+
+#include "types.hpp"
 
 namespace stabaal {
 
@@ -19,7 +20,7 @@ class DynamicBitset {
     DynamicBitset& operator=(DynamicBitset&& other) noexcept;
     ~DynamicBitset() noexcept;
 
-    std::size_t AllocatedBytes(std::size_t num_bits) const noexcept;
+    static std::size_t AllocatedBytes(std::size_t num_bits) noexcept;
     bool Any(std::size_t num_bits) const noexcept;
     bool Get(std::size_t idx) const noexcept;
     void Set(std::size_t idx, bool value = true) noexcept;
@@ -28,7 +29,7 @@ class DynamicBitset {
     std::span<const std::uint64_t> Words(std::size_t num_bits) const noexcept;
 
    private:
-    std::unique_ptr<std::uint64_t[]> words_;
+    DynamicArray<std::uint64_t> words_;
 };
 
 }  // namespace stabaal

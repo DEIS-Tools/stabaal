@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <memory>
 #include <span>
 #include <utility>
 
@@ -29,6 +30,7 @@ DynamicBitset::DynamicBitset() noexcept = default;
 
 DynamicBitset::DynamicBitset(const std::size_t num_bits) {
     const auto num_words{CapacityWords(num_bits)};
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
     if (num_words != 0) words_ = std::make_unique<std::uint64_t[]>(num_words);
 }
 
@@ -41,7 +43,7 @@ DynamicBitset::~DynamicBitset() noexcept = default;
 DynamicBitset::DynamicBitset(DynamicBitset&& other) noexcept = default;
 DynamicBitset& DynamicBitset::operator=(DynamicBitset&& other) noexcept = default;
 
-std::size_t DynamicBitset::AllocatedBytes(const std::size_t num_bits) const noexcept {
+std::size_t DynamicBitset::AllocatedBytes(const std::size_t num_bits) noexcept {
     return CapacityWords(num_bits) * sizeof(std::uint64_t);
 }
 
@@ -79,9 +81,10 @@ void DynamicBitset::Resize(const std::size_t old_num_bits, const std::size_t new
     if (old_num_words == new_num_words) return;
     if (CapacityWords(old_num_bits) == CapacityWords(new_num_bits)) {
         if (new_num_words < old_num_words) {
-            std::fill_n(words_.get() + new_num_words, old_num_words - new_num_words, 0);
+            const auto truncated{Words(old_num_bits).subspan(new_num_words)};
+            std::fill(truncated.begin(), truncated.end(), 0);
         }
-        
+
         return;
     }
 

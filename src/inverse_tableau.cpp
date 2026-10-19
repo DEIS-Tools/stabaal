@@ -117,7 +117,7 @@ bool InverseTableau::MeasureZ(const QubitIdx q) {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    if (computational_.gens[q].AnyX()) {
+    if (computational_.gens[q].AnyX(num_qubits_)) {
         return RandomMeasurement(q, Basis::kComputational);
     }
 
@@ -129,7 +129,7 @@ bool InverseTableau::MeasureX(const QubitIdx q) {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    if (hadamard_.gens[q].AnyX()) {
+    if (hadamard_.gens[q].AnyX(num_qubits_)) {
         return RandomMeasurement(q, Basis::kHadamard);
     }
 
@@ -152,11 +152,13 @@ void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    const auto hadamard_phase{hadamard_.gens[c].XorWithPhase(hadamard_.gens[t])};
+    const auto hadamard_phase{hadamard_.gens[c].XorWithPhase(hadamard_.gens[t], num_qubits_)};
     hadamard_.signs.Set(c,
                         Phase(hadamard_phase, hadamard_.signs.Get(c), hadamard_.signs.Get(t), 0));
 
-    const auto computational_phase{computational_.gens[t].XorWithPhase(computational_.gens[c])};
+    const auto computational_phase{
+        computational_.gens[t].XorWithPhase(computational_.gens[c], num_qubits_),
+    };
     computational_.signs.Set(
         t, Phase(computational_phase, computational_.signs.Get(t), computational_.signs.Get(c), 0));
 }
@@ -174,7 +176,7 @@ void InverseTableau::ApplyS(const QubitIdx q) {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    const auto exponent{hadamard_.gens[q].XorWithPhase(computational_.gens[q])};
+    const auto exponent{hadamard_.gens[q].XorWithPhase(computational_.gens[q], num_qubits_)};
     hadamard_.signs.Set(q, Phase(exponent, hadamard_.signs.Get(q), computational_.signs.Get(q), 3));
 }
 
