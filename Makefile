@@ -1,6 +1,6 @@
 SOURCES := $(shell find src -type f -name '*.cpp')
 FORMAT_FILES := $(shell find src include tests benchmarks -type f \( -name '*.cpp' -o -name '*.hpp' \))
-BENCH_ARGS ?= 256 1000000 10
+BENCH_ARGS ?= 256 1000000 50
 
 .PHONY: release debug flamegraph lint format
 
