@@ -34,12 +34,12 @@ BasisTable::BasisTable(const BasisTable& other, const std::size_t num_qubits)
 
 void BasisTable::Add(const std::size_t old_num_qubits) {
     const auto num_qubits{old_num_qubits + 1};
-    if (CapacityRows(old_num_qubits) != CapacityRows(num_qubits)) {
+    if (CapacityRows(old_num_qubits) < CapacityRows(num_qubits)) {
         auto resized{MakeDynamicArray<PauliString>(CapacityRows(num_qubits))};
         for (std::size_t i{0}; i < old_num_qubits; ++i) {
             resized[i] = std::move(gens[i]);
         }
-        
+
         gens = std::move(resized);
     }
 
