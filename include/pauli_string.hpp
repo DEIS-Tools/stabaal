@@ -8,7 +8,6 @@
 #include "types.hpp"
 
 namespace stabaal {
-
 class PauliString {
    public:
     PauliString() noexcept;
@@ -30,6 +29,10 @@ class PauliString {
     std::int64_t XorWithPhase(const PauliString& other) noexcept;
 
    private:
+    std::uint64_t PopCount(const std::uint64_t word) const noexcept;
+    std::uint64_t FastPopCount(const std::uint64_t word) const noexcept;
+    std::uint64_t NormalPopCount(const std::uint64_t word) const noexcept;
+
     DynamicBitset x_;
     DynamicBitset z_;
 };
