@@ -5,9 +5,11 @@
 #include <complex>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <random>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -307,9 +309,9 @@ TEST_CASE("BasisTable growth reuses capacity and preserves rows", "[basis][growt
     CHECK_FALSE(table.gens);
     CHECK(BasisTable::AllocatedBytes(0) == 0);
     for (std::size_t n{0}; n < 130; ++n) {
-        const auto* previous{table.gens.get()};
+        const auto* previous{table.gens.Data()};
         table.Add(n);
-        if (n != 0 && (n & (n - 1)) != 0) CHECK(table.gens.get() == previous);
+        if (n != 0 && (n & (n - 1)) != 0) CHECK(table.gens.Data() == previous);
         for (std::size_t row{0}; row <= n; ++row) {
             CHECK(table.signs.Get(row) == (row < n));
             for (std::size_t col{0}; col <= n; ++col) {

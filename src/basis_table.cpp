@@ -4,8 +4,9 @@
 #include <cstddef>
 #include <utility>
 
+#include "dynamic_array.hpp"
+#include "dynamic_bitset.hpp"
 #include "pauli_string.hpp"
-#include "types.hpp"
 
 using namespace stabaal;
 
@@ -18,15 +19,14 @@ std::size_t CapacityRows(const std::size_t num_qubits) noexcept {
 }  // namespace
 
 BasisTable::BasisTable(const std::size_t num_qubits)
-    : signs{num_qubits}, gens{MakeDynamicArray<PauliString>(CapacityRows(num_qubits))} {
+    : signs{num_qubits}, gens{CapacityRows(num_qubits)} {
     for (std::size_t i{0}; i < num_qubits; ++i) {
         gens[i] = PauliString{num_qubits};
     }
 }
 
 BasisTable::BasisTable(const BasisTable& other, const std::size_t num_qubits)
-    : signs{other.signs, num_qubits},
-      gens{MakeDynamicArray<PauliString>(CapacityRows(num_qubits))} {
+    : signs{other.signs, num_qubits}, gens{CapacityRows(num_qubits)} {
     for (std::size_t i{0}; i < num_qubits; ++i) {
         gens[i] = PauliString{other.gens[i], num_qubits};
     }
@@ -35,7 +35,7 @@ BasisTable::BasisTable(const BasisTable& other, const std::size_t num_qubits)
 void BasisTable::Add(const std::size_t old_num_qubits) {
     const auto num_qubits{old_num_qubits + 1};
     if (CapacityRows(old_num_qubits) < CapacityRows(num_qubits)) {
-        auto resized{MakeDynamicArray<PauliString>(CapacityRows(num_qubits))};
+        DynamicArray<PauliString> resized{CapacityRows(num_qubits)};
         for (std::size_t i{0}; i < old_num_qubits; ++i) {
             resized[i] = std::move(gens[i]);
         }

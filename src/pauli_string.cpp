@@ -5,11 +5,26 @@
 #include <cstdint>
 #include <span>
 
+#include "dynamic_bitset.hpp"
 #include "types.hpp"
 
 using namespace stabaal;
 
 namespace {
+
+constexpr std::size_t kQubitsPerWord{64};
+
+constexpr std::size_t GetXIdx(const QubitIdx idx) noexcept {
+    return (idx / kQubitsPerWord) * (2 * kQubitsPerWord) + idx % kQubitsPerWord;
+}
+
+constexpr std::size_t GetZIdx(const QubitIdx idx) noexcept { return GetXIdx(idx) + kQubitsPerWord; }
+
+constexpr std::size_t BitsRequired(const std::size_t num_qubits) noexcept {
+    return (num_qubits / kQubitsPerWord + (num_qubits % kQubitsPerWord != 0 ? 1 : 0)) * 2 *
+           kQubitsPerWord;
+}
+
 // Use hardware POPCNT instruction if available
 __attribute__((target_clones("popcnt", "default"))) std::int64_t XorWordsWithPhase(
     const std::span<std::uint64_t> words,
@@ -76,17 +91,4 @@ std::int64_t PauliString::XorWithPhase(const PauliString& other,
                                        const std::size_t num_qubits) noexcept {
     return XorWordsWithPhase(xz_.Words(BitsRequired(num_qubits)),
                              other.xz_.Words(BitsRequired(num_qubits)));
-}
-
-std::size_t PauliString::GetXIdx(const QubitIdx idx) noexcept {
-    return (idx / kQubitsPerWord) * (2 * kQubitsPerWord) + idx % kQubitsPerWord;
-}
-
-std::size_t PauliString::GetZIdx(const QubitIdx idx) noexcept {
-    return GetXIdx(idx) + kQubitsPerWord;
-}
-
-std::size_t PauliString::BitsRequired(const std::size_t num_qubits) noexcept {
-    return (num_qubits / kQubitsPerWord + (num_qubits % kQubitsPerWord != 0 ? 1 : 0)) * 2 *
-           kQubitsPerWord;
 }

@@ -3,9 +3,9 @@
 
 #include <cstddef>
 
+#include "dynamic_array.hpp"
 #include "dynamic_bitset.hpp"
 #include "pauli_string.hpp"
-#include "types.hpp"
 
 namespace stabaal {
 

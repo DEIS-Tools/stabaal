@@ -36,13 +36,7 @@ class PauliString {
     std::int64_t XorWithPhase(const PauliString& other, std::size_t num_qubits) noexcept;
 
    private:
-    static std::size_t BitsRequired(std::size_t num_qubits) noexcept;
-    static std::size_t GetXIdx(QubitIdx idx) noexcept;
-    static std::size_t GetZIdx(QubitIdx idx) noexcept;
-
     DynamicBitset xz_;
-
-    static constexpr std::size_t kQubitsPerWord{64};
 };
 
 }  // namespace stabaal

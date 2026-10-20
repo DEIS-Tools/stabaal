@@ -1,6 +1,5 @@
 #include "inverse_tableau.hpp"
 
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -8,12 +7,30 @@
 #include <random>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include "basis_table.hpp"
 #include "pauli_string.hpp"
 #include "types.hpp"
 
 using namespace stabaal;
+
+namespace {
+
+std::mt19937& RandomEngine() {
+    static thread_local std::mt19937 engine{std::random_device{}()};
+    return engine;
+}
+
+bool Phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
+           const std::uint8_t phase_rule) noexcept {
+    assert(phase_rule < 4);
+    const auto phase{static_cast<std::uint64_t>(exponent + phase_rule) & 3U};
+    assert(phase % 2 == 0);
+    return (phase == 2) != (a_sign != b_sign);
+}
+
+}  // namespace
 
 InverseTableau::InverseTableau(const QubitIdx num_qubits)
     : computational_{num_qubits}, hadamard_{num_qubits}, num_qubits_{num_qubits} {
@@ -31,11 +48,6 @@ InverseTableau::InverseTableau(const InverseTableau& other)
 InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
     if (this != &other) *this = InverseTableau{other};
     return *this;
-}
-
-std::mt19937& InverseTableau::RandomEngine() {
-    static thread_local std::mt19937 engine{std::random_device{}()};
-    return engine;
 }
 
 void InverseTableau::Add() {
@@ -122,18 +134,6 @@ bool InverseTableau::RandomMeasurement(const QubitIdx q, const Basis b) {
     return table.signs.Get(q);
 }
 
-bool InverseTableau::MeasureZ(const QubitIdx q) {
-    if (q >= num_qubits_) [[unlikely]] {
-        throw std::out_of_range{"Qubit index out of range"};
-    }
-
-    if (computational_.gens[q].AnyX(num_qubits_)) {
-        return RandomMeasurement(q, Basis::kComputational);
-    }
-
-    return computational_.signs.Get(q);
-}
-
 bool InverseTableau::MeasureX(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
@@ -146,6 +146,18 @@ bool InverseTableau::MeasureX(const QubitIdx q) {
     return hadamard_.signs.Get(q);
 }
 
+bool InverseTableau::MeasureZ(const QubitIdx q) {
+    if (q >= num_qubits_) [[unlikely]] {
+        throw std::out_of_range{"Qubit index out of range"};
+    }
+
+    if (computational_.gens[q].AnyX(num_qubits_)) {
+        return RandomMeasurement(q, Basis::kComputational);
+    }
+
+    return computational_.signs.Get(q);
+}
+
 void InverseTableau::ApplyH(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
@@ -155,6 +167,31 @@ void InverseTableau::ApplyH(const QubitIdx q) {
     const bool sign{computational_.signs.Get(q)};
     computational_.signs.Set(q, hadamard_.signs.Get(q));
     hadamard_.signs.Set(q, sign);
+}
+
+void InverseTableau::ApplyS(const QubitIdx q) {
+    if (q >= num_qubits_) [[unlikely]] {
+        throw std::out_of_range{"Qubit index out of range"};
+    }
+
+    const auto exponent{hadamard_.gens[q].XorWithPhase(computational_.gens[q], num_qubits_)};
+    hadamard_.signs.Set(q, Phase(exponent, hadamard_.signs.Get(q), computational_.signs.Get(q), 3));
+}
+
+void InverseTableau::ApplyX(const QubitIdx q) {
+    if (q >= num_qubits_) [[unlikely]] {
+        throw std::out_of_range{"Qubit index out of range"};
+    }
+
+    computational_.signs.Set(q, !computational_.signs.Get(q));
+}
+
+void InverseTableau::ApplyZ(const QubitIdx q) {
+    if (q >= num_qubits_) [[unlikely]] {
+        throw std::out_of_range{"Qubit index out of range"};
+    }
+
+    hadamard_.signs.Set(q, !hadamard_.signs.Get(q));
 }
 
 void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
@@ -171,31 +208,6 @@ void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
     };
     computational_.signs.Set(
         t, Phase(computational_phase, computational_.signs.Get(t), computational_.signs.Get(c), 0));
-}
-
-void InverseTableau::ApplyX(const QubitIdx q) {
-    if (q >= num_qubits_) [[unlikely]] {
-        throw std::out_of_range{"Qubit index out of range"};
-    }
-
-    computational_.signs.Set(q, !computational_.signs.Get(q));
-}
-
-void InverseTableau::ApplyS(const QubitIdx q) {
-    if (q >= num_qubits_) [[unlikely]] {
-        throw std::out_of_range{"Qubit index out of range"};
-    }
-
-    const auto exponent{hadamard_.gens[q].XorWithPhase(computational_.gens[q], num_qubits_)};
-    hadamard_.signs.Set(q, Phase(exponent, hadamard_.signs.Get(q), computational_.signs.Get(q), 3));
-}
-
-void InverseTableau::ApplyZ(const QubitIdx q) {
-    if (q >= num_qubits_) [[unlikely]] {
-        throw std::out_of_range{"Qubit index out of range"};
-    }
-
-    hadamard_.signs.Set(q, !hadamard_.signs.Get(q));
 }
 
 std::size_t InverseTableau::MemoryUsage() const noexcept {
@@ -240,12 +252,4 @@ void InverseTableau::Print() const {
     }
 
     std::cout << '\n';
-}
-
-bool InverseTableau::Phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
-                           const std::uint8_t phase_rule) noexcept {
-    assert(phase_rule < 4);
-    const auto phase{static_cast<std::uint64_t>(exponent + phase_rule) & 3U};
-    assert(phase % 2 == 0);
-    return (phase == 2) != (a_sign != b_sign);
 }

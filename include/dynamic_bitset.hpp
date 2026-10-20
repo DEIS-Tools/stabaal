@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <span>
 
-#include "types.hpp"
+#include "dynamic_array.hpp"
 
 namespace stabaal {
 

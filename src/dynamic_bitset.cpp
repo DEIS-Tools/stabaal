@@ -9,7 +9,7 @@
 #include <span>
 #include <utility>
 
-#include "types.hpp"
+#include "dynamic_array.hpp"
 
 using namespace stabaal;
 
@@ -29,12 +29,11 @@ constexpr std::size_t CapacityWords(const std::size_t num_bits) noexcept {
 
 DynamicBitset::DynamicBitset() noexcept = default;
 
-DynamicBitset::DynamicBitset(const std::size_t num_bits)
-    : words_{MakeDynamicArray<std::uint64_t>(CapacityWords(num_bits))} {}
+DynamicBitset::DynamicBitset(const std::size_t num_bits) : words_{CapacityWords(num_bits)} {}
 
 DynamicBitset::DynamicBitset(const DynamicBitset& other, const std::size_t num_bits)
     : DynamicBitset{num_bits} {
-    if (num_bits != 0) std::copy_n(other.words_.get(), WordCount(num_bits), words_.get());
+    if (num_bits != 0) std::copy_n(other.words_.Data(), WordCount(num_bits), words_.Data());
 }
 
 DynamicBitset::~DynamicBitset() noexcept = default;
@@ -88,14 +87,14 @@ void DynamicBitset::Resize(const std::size_t old_num_bits, const std::size_t new
 
     DynamicBitset resized{new_num_bits};
     const auto retained{std::min(old_num_words, new_num_words)};
-    if (retained != 0) std::copy_n(words_.get(), retained, resized.words_.get());
+    if (retained != 0) std::copy_n(words_.Data(), retained, resized.words_.Data());
     *this = std::move(resized);
 }
 
 std::span<std::uint64_t> DynamicBitset::Words(const std::size_t num_bits) noexcept {
-    return {words_.get(), WordCount(num_bits)};
+    return {words_.Data(), WordCount(num_bits)};
 }
 
 std::span<const std::uint64_t> DynamicBitset::Words(const std::size_t num_bits) const noexcept {
-    return {words_.get(), WordCount(num_bits)};
+    return {words_.Data(), WordCount(num_bits)};
 }
