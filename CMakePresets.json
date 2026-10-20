@@ -1,0 +1,63 @@
+{
+  "version": 6,
+  "configurePresets": [
+    {
+      "name": "debug",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": false,
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "CMAKE_CXX_SCAN_FOR_MODULES": false,
+        "BUILD_TESTING": false
+      }
+    },
+    {
+      "name": "release",
+      "inherits": "debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": true
+      }
+    },
+    {
+      "name": "profile",
+      "inherits": "release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_CXX_FLAGS_RELWITHDEBINFO": "-O3 -g -DNDEBUG",
+        "CMAKE_CXX_FLAGS": "-fno-omit-frame-pointer",
+        "BUILD_BENCHMARKS": true
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "release", "configurePreset": "release" },
+    { "name": "profile", "configurePreset": "profile" }
+  ],
+  "workflowPresets": [
+    {
+      "name": "debug",
+      "steps": [
+        { "type": "configure", "name": "debug" },
+        { "type": "build", "name": "debug" }
+      ]
+    },
+    {
+      "name": "release",
+      "steps": [
+        { "type": "configure", "name": "release" },
+        { "type": "build", "name": "release" }
+      ]
+    },
+    {
+      "name": "profile",
+      "steps": [
+        { "type": "configure", "name": "profile" },
+        { "type": "build", "name": "profile" }
+      ]
+    }
+  ]
+}

@@ -1,2 +1,6 @@
 .vscode
 build
+flamegraph.svg
+flamegraph.folded
+main.cpp
+run.sh
