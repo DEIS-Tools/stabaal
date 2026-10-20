@@ -238,11 +238,86 @@ bool InverseTableau::Measure(const QubitSize q, const Basis basis) {
     return Generator(q, basis).AnyX(num_qubits_) ? RandomMeasurement(q, basis) : Sign(q, basis);
 }
 
-bool InverseTableau::MeasureX(const QubitSize q) { return Measure(q, Basis::kHadamard); }
+bool InverseTableau::IsDeterministicMeasureZ(const QubitIdx q) {
+    if (q >= num_qubits_) [[unlikely]] {
+        throw std::out_of_range{"Qubit index out of range"};
+    }
+
+    if (computational_.gens[q].AnyX()) {
+        return 0;
+    }
+    return 1;
+}
+
+bool InverseTableau::IsDeterministicMeasureX(const QubitIdx q){
+    if (q >= num_qubits_) [[unlikely]] {
+        throw std::out_of_range{"Qubit index out of range"};
+    }
+    
+    if (hadamard_.gens[q].AnyX()) {
+        return 0;
+    }
+    return 1;
+}
+
+
+bool InverseTableau::MeasureX(const QubitIdx q) { return Measure(q, Basis::kHadamard); }
 
 bool InverseTableau::MeasureZ(const QubitSize q) { return Measure(q, Basis::kComputational); }
 
-void InverseTableau::ApplyH(const QubitSize q) noexcept {
+bool InverseTableau::ForceMeasureZ(const QubitIdx q, const bool measurement){
+    if (q >= num_qubits_) [[unlikely]] {
+        throw std::out_of_range{"Qubit index out of range"};
+    }
+
+    if (IsDeterministicMeasureZ(q)) {
+        // Probably the wrong error type
+        throw std::logic_error("This qubit provides a deterministic measurement");
+    }
+    
+    const auto& table{computational_};
+    const auto& gen{table.gens[q]};
+    QubitIdx pivot{0};
+
+    for (QubitIdx i{0}; i < num_qubits_; ++i) {
+        if (gen.GetX(i)) {
+            pivot = i;
+            break;
+        }
+    }
+
+    CleanUp(pivot, gen);
+    Collapse(pivot, measurement);
+    return table.signs.Get(q);
+}
+
+bool InverseTableau::ForceMeasureX(const QubitIdx q, const bool measurement){
+    if (q >= num_qubits_) [[unlikely]] {
+        throw std::out_of_range{"Qubit index out of range"};
+    }
+
+    if (IsDeterministicMeasureZ(q)) {
+        // Probably the wrong error type
+        throw std::logic_error("This qubit provides a deterministic measurement");
+    }
+    
+    const auto& table{hadamard_};
+    const auto& gen{table.gens[q]};
+    QubitIdx pivot{0};
+
+    for (QubitIdx i{0}; i < num_qubits_; ++i) {
+        if (gen.GetX(i)) {
+            pivot = i;
+            break;
+        }
+    }
+
+    CleanUp(pivot, gen);
+    Collapse(pivot, measurement);
+    return table.signs.Get(q);
+}
+
+void InverseTableau::ApplyH(const QubitIdx q) noexcept {
     assert(q < num_qubits_);
 
     FlipBit(Flags(kSwapFlags), q);
