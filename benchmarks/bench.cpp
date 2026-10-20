@@ -52,22 +52,25 @@ int main(int argc, char** argv) {
         const auto qubits{argc > 1 ? Parse<stabaal::QubitIdx>(args[1]) : stabaal::QubitIdx{256}};
         const auto gates{argc > 2 ? Parse<std::size_t>(args[2]) : std::size_t{1000000}};
         const auto repeats{argc > 3 ? Parse<std::uint32_t>(args[3]) : std::uint32_t{5}};
-        std::mt19937 rng{1234};
         std::uniform_int_distribution<stabaal::QubitIdx> qubit{0, qubits - 1};
         std::vector<Gate> circuit{};
         circuit.reserve(gates);
-        for (std::size_t i{0}; i < gates; ++i) {
-            const auto q{qubit(rng)};
-            auto target{qubit(rng)};
-            if (target == q) target = (q + 1) % qubits;
-            circuit.push_back({static_cast<GateKind>(rng() % (qubits == 1 ? 4 : 5)), q, target});
-        }
 
         std::vector<double> times{};
         times.reserve(repeats);
         std::uint32_t checksum{0};
         std::size_t memory_bytes{0};
         for (std::uint32_t repeat{0}; repeat < repeats; ++repeat) {
+            std::mt19937 rng{1234U + repeat};
+            circuit.clear();
+            for (std::size_t i{0}; i < gates; ++i) {
+                const auto q{qubit(rng)};
+                auto target{qubit(rng)};
+                if (target == q) target = (q + 1) % qubits;
+                circuit.push_back(
+                    {static_cast<GateKind>(rng() % (qubits == 1 ? 4 : 5)), q, target});
+            }
+
             stabaal::InverseTableau tableau{qubits};
             const auto start{std::chrono::steady_clock::now()};
             for (const auto& gate : circuit) {

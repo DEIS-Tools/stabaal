@@ -16,8 +16,8 @@ struct BasisTable {
     void Add();
     std::size_t AllocatedBytes() const noexcept;
 
-    std::vector<PauliString> gens;
     DynamicBitset signs;
+    std::vector<PauliString> gens;
 };
 
 }  // namespace stabaal

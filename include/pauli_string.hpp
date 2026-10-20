@@ -8,7 +8,6 @@
 #include "types.hpp"
 
 namespace stabaal {
-
 class PauliString {
    public:
     PauliString() noexcept;
