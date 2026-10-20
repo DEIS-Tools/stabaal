@@ -1,8 +1,12 @@
+#pragma once
+
+#include <functional>
+
 struct CInt {
     int z = 0, i = 0;
 
     template<class Op>
-    constexpr CInt elementwise(const CInt& o, Op op) const { return {op(z, o.z), (i, o.i)};}
+    constexpr CInt elementwise(const CInt& o, Op op) const { return {op(z, o.z), op(i, o.i)};}
 
     constexpr CInt operator+(const CInt& o) const { return elementwise(o, std::plus{}); }
     constexpr CInt& operator+=(const CInt& o) { return *this = *this + o; }

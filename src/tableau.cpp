@@ -19,7 +19,7 @@ void Tableau::add() {
     hadamard[last].x[last]      = true;
 }
 
-void Tableau::clean_up(int pivot, Generator& gen) {
+void Tableau::clean_up(int pivot, const Generator& gen) {
     // cx between pivot and all columns with x in the measured row.
     for (auto i = pivot+1; i < qubits; ++i) {
         if (!gen.x[i]) continue;
@@ -155,5 +155,35 @@ bool Tableau::phase(const Generator& a, const Generator& b, int phase_rule) {
         throw std::runtime_error("Final phase came out to uneven numbers, meaning there has been a mistake");
     return val == 2;
 }
+
+template <size_t N>
+Generator Tableau::combine_rows(const GenEffect<N>& effect, const Generator (&old_comp)[N], const Generator (&old_had)[N]) {
+    auto acc = Generator(qubits);
+    auto exp = 2 * int(effect.r);
+
+    for (auto k = size_t{0}; k < N; ++k) {
+        if (effect.x[k]) {
+            exp += e(acc, old_had[k]) + 2 * old_had[k].r;
+            acc.x ^= old_had[k].x;
+            acc.z ^= old_had[k].z;
+        }
+        if (effect.z[k])  {
+            exp += e(acc, old_comp[k]) + 2 * old_comp[k].r;
+            acc.x ^= old_comp[k].x;
+            acc.z ^= old_comp[k].z;
+        }
+        if (effect.x[k] && effect.z[k]) exp += 1;
+    }
+
+    exp &= 3; // basicly mod 4
+    if (exp % 2 == 1)
+        throw std::runtime_error("Final phase came out to uneven numbers, meaning there has been a mistake");
+
+    acc.r = (exp == 2);
+    return acc;
+}
+
+template Generator Tableau::combine_rows<1>(const GenEffect<1>&, const Generator (&)[1], const Generator (&)[1]);
+template Generator Tableau::combine_rows<2>(const GenEffect<2>&, const Generator (&)[2], const Generator (&)[2]);
 
 uint64_t Tableau::get_qubits() const { return qubits; }

@@ -1,8 +1,10 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
+#include <catch2/generators/catch_generators_range.hpp>
 
 #include <array>
 #include <complex>
+#include <random>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -585,6 +587,197 @@ TEST_CASE("GHZ state correlations", "[tableau][gate][cx][entangle]") {
         return a;
     });
     CHECK(seen.size() == 2);
+}
+
+// ---------------------------------------------------------------------------
+// Generated gates: find_gate_effect, apply<M> and the GATE_LIST methods
+// ---------------------------------------------------------------------------
+
+// Renders a GenEffect as a signed Pauli string, same format as str(Generator).
+template <size_t N>
+static std::string str(const GenEffect<N>& g) {
+    std::string s = g.r ? "-" : "+";
+    for (size_t i = 0; i < N; ++i)
+        s += g.x[i] ? (g.z[i] ? 'Y' : 'X') : (g.z[i] ? 'Z' : 'I');
+    return s;
+}
+
+// Every row of a and b, signs included, is identical.
+static void check_same_rows(Tableau& a, Tableau& b) {
+    REQUIRE(A::qubits(a) == A::qubits(b));
+    for (size_t i = 0; i < A::qubits(a); ++i) {
+        CAPTURE(i);
+        CHECK(str(A::comp(a)[i]) == str(A::comp(b)[i]));
+        CHECK(str(A::had(a)[i])  == str(A::had(b)[i]));
+    }
+}
+
+// Puts a and b in the same pseudo-random state using the hand-written gates.
+static void scramble(Tableau& a, Tableau& b, unsigned seed, int steps = 20) {
+    std::mt19937 rng(seed);
+    auto n = int(A::qubits(a));
+    for (int i = 0; i < steps; ++i) {
+        int q = rng() % n;
+        int t = (q + 1 + rng() % (n - 1)) % n;
+        switch (rng() % 5) {
+            case 0: a.apply_h(q);     b.apply_h(q);     break;
+            case 1: a.apply_s(q);     b.apply_s(q);     break;
+            case 2: a.apply_x(q);     b.apply_x(q);     break;
+            case 3: a.apply_z(q);     b.apply_z(q);     break;
+            case 4: a.apply_cx(q, t); b.apply_cx(q, t); break;
+        }
+    }
+}
+
+TEST_CASE("find_gate_effect runs at compile time", "[tableau][codegen][gate_effect]") {
+    constexpr auto h = find_gate_effect<1>(H_mat);
+    STATIC_REQUIRE(h.computational[0].x[0]);
+    STATIC_REQUIRE(!h.computational[0].z[0]);
+    STATIC_REQUIRE(h.hadamard[0].z[0]);
+    STATIC_REQUIRE(!h.hadamard[0].x[0]);
+}
+
+// computational[j] is the image of Z_j and hadamard[j] the image of X_j, both as U^dagger P U.
+TEST_CASE("find_gate_effect single-qubit images", "[tableau][codegen][gate_effect]") {
+    SECTION("I") {
+        constexpr auto g = find_gate_effect<1>(I_mat);
+        CHECK(str(g.computational[0]) == "+Z");
+        CHECK(str(g.hadamard[0])      == "+X");
+    }
+    SECTION("H") {
+        constexpr auto g = find_gate_effect<1>(H_mat);
+        CHECK(str(g.computational[0]) == "+X");
+        CHECK(str(g.hadamard[0])      == "+Z");
+    }
+    SECTION("S: X -> -Y") {
+        constexpr auto g = find_gate_effect<1>(S_mat);
+        CHECK(str(g.computational[0]) == "+Z");
+        CHECK(str(g.hadamard[0])      == "-Y");
+    }
+    SECTION("S^dagger: X -> +Y") {
+        constexpr auto g = find_gate_effect<1>(S_mat.adjoint());
+        CHECK(str(g.computational[0]) == "+Z");
+        CHECK(str(g.hadamard[0])      == "+Y");
+    }
+    SECTION("X") {
+        constexpr auto g = find_gate_effect<1>(X_mat);
+        CHECK(str(g.computational[0]) == "-Z");
+        CHECK(str(g.hadamard[0])      == "+X");
+    }
+    SECTION("Z") {
+        constexpr auto g = find_gate_effect<1>(Z_mat);
+        CHECK(str(g.computational[0]) == "+Z");
+        CHECK(str(g.hadamard[0])      == "-X");
+    }
+    SECTION("Y") {
+        constexpr auto g = find_gate_effect<1>(Y_mat);
+        CHECK(str(g.computational[0]) == "-Z");
+        CHECK(str(g.hadamard[0])      == "-X");
+    }
+}
+
+TEST_CASE("find_gate_effect CX images", "[tableau][codegen][gate_effect]") {
+    constexpr auto g = find_gate_effect<2>(CX_mat);
+    CHECK(str(g.computational[0]) == "+ZI");
+    CHECK(str(g.computational[1]) == "+ZZ");
+    CHECK(str(g.hadamard[0])      == "+XX");
+    CHECK(str(g.hadamard[1])      == "+IX");
+}
+
+TEST_CASE("generated methods on a fresh tableau", "[tableau][codegen][gate]") {
+    SECTION("h(0) gives |+>") {
+        Tableau t(1);
+        t.h(0);
+        CHECK(str(A::comp(t)[0]) == "+X");
+        CHECK(str(A::had(t)[0])  == "+Z");
+        CHECK(t.measure_x(0) == false);
+    }
+    SECTION("s(0) X row becomes -Y") {
+        Tableau t(1);
+        t.s(0);
+        CHECK(str(A::comp(t)[0]) == "+Z");
+        CHECK(str(A::had(t)[0])  == "-Y");
+    }
+    SECTION("h(0) z(0) gives |->") {
+        Tableau t(1);
+        t.h(0);
+        t.z(0);
+        CHECK(t.measure_x(0) == true);
+    }
+    SECTION("exact rows after h(0) cx(0, 1)") {
+        Tableau t(2);
+        t.h(0);
+        t.cx(0, 1);
+        CHECK(str(A::comp(t)[0]) == "+XI");
+        CHECK(str(A::comp(t)[1]) == "+XZ");
+        CHECK(str(A::had(t)[0])  == "+ZX");
+        CHECK(str(A::had(t)[1])  == "+IX");
+        check_symplectic(t);
+    }
+}
+
+TEST_CASE("generated methods match the hand-written gates", "[tableau][codegen][gate]") {
+    auto seed = GENERATE(range(0u, 32u));
+    CAPTURE(seed);
+    Tableau a(4), b(4);
+    scramble(a, b, seed);
+    check_same_rows(a, b);
+
+    SECTION("h") { for (int q = 0; q < 4; ++q) { a.apply_h(q); b.h(q); } }
+    SECTION("s") { for (int q = 0; q < 4; ++q) { a.apply_s(q); b.s(q); } }
+    SECTION("z") { for (int q = 0; q < 4; ++q) { a.apply_z(q); b.z(q); } }
+    SECTION("cx adjacent")     { a.apply_cx(0, 1); b.cx(0, 1); }
+    SECTION("cx reversed")     { a.apply_cx(3, 1); b.cx(3, 1); }
+    SECTION("cx non-adjacent") { a.apply_cx(0, 3); b.cx(0, 3); }
+
+    check_same_rows(a, b);
+    check_symplectic(b);
+}
+
+TEST_CASE("apply<M> for gates without a generated method", "[tableau][codegen][gate]") {
+    auto seed = GENERATE(range(0u, 32u));
+    CAPTURE(seed);
+    Tableau a(3), b(3);
+    scramble(a, b, seed);
+
+    SECTION("I leaves the tableau unchanged") {
+        b.apply<I_mat>(1);
+    }
+    SECTION("X matches apply_x") {
+        a.apply_x(2);
+        b.apply<X_mat>(2);
+    }
+    SECTION("Y matches Z then X (equal up to global phase)") {
+        a.apply_z(0);
+        a.apply_x(0);
+        b.apply<Y_mat>(0);
+    }
+    SECTION("S^dagger matches three S") {
+        for (int i = 0; i < 3; ++i) a.apply_s(1);
+        b.apply<S_mat.adjoint()>(1);
+    }
+
+    check_same_rows(a, b);
+    check_symplectic(b);
+}
+
+TEST_CASE("generated methods match the hand-written gates on random circuits", "[tableau][codegen][gate]") {
+    auto seed = GENERATE(range(0u, 64u));
+    CAPTURE(seed);
+    std::mt19937 rng(seed);
+    Tableau a(5), b(5);
+    for (int i = 0; i < 40; ++i) {
+        int q = rng() % 5;
+        int t = (q + 1 + rng() % 4) % 5;
+        switch (rng() % 4) {
+            case 0: a.apply_h(q);     b.h(q);     break;
+            case 1: a.apply_s(q);     b.s(q);     break;
+            case 2: a.apply_z(q);     b.z(q);     break;
+            case 3: a.apply_cx(q, t); b.cx(q, t); break;
+        }
+    }
+    check_same_rows(a, b);
+    check_symplectic(b);
 }
 
 TEST_CASE("add appends a fresh |0> qubit", "[tableau][add]") {
