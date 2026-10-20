@@ -32,7 +32,7 @@ class DynamicArray {
     explicit operator bool() const noexcept { return static_cast<bool>(data_); }
 
    private:
-    std::unique_ptr<T[]> data_; // NOLINT(cppcoreguidelines-avoid-c-arrays)
+    std::unique_ptr<T[]> data_;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 };
 
 }  // namespace stabaal
