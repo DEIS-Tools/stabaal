@@ -15,11 +15,11 @@
 #include <utility>
 #include <vector>
 
-#include "basis_table.hpp"
-#include "inverse_tableau.hpp"
-#include "types.hpp"
+#include "stabaal/detail/basis_table.hpp"
+#include "stabaal/detail/inverse_tableau.hpp"
+#include "stabaal/detail/types.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 // Builds unsigned operators from a Pauli string, e.g. Pauli("XIZY") = X⊗I⊗Z⊗Y.
 // Character i is the Pauli acting on qubit i.
@@ -559,4 +559,4 @@ TEST_CASE("InverseTableau rejects invalid gate and measurement indices",
     for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
 }
 
-}  // namespace stabaal
+}  // namespace stabaal::detail

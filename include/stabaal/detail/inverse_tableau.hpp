@@ -1,5 +1,5 @@
-#ifndef STABAAL_INVERSE_TABLEAU_HPP
-#define STABAAL_INVERSE_TABLEAU_HPP
+#ifndef STABAAL_DETAIL_INVERSE_TABLEAU_HPP
+#define STABAAL_DETAIL_INVERSE_TABLEAU_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -8,7 +8,7 @@
 #include "pauli_string.hpp"
 #include "types.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 class InverseTableau {
    public:
@@ -51,6 +51,6 @@ class InverseTableau {
     bool RandomMeasurement(QubitIdx q, Basis b);
 };
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif

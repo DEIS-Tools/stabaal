@@ -14,13 +14,11 @@
 #include <system_error>
 #include <vector>
 
-#include "inverse_tableau.hpp"
-#include "simulator.hpp"
-#include "types.hpp"
+#include "stabaal/simulator.hpp"
 
 namespace {
 
-using BenchSimulator = stabaal::Simulator<stabaal::InverseTableau>;
+using BenchSimulator = stabaal::Simulator<>;
 
 template <typename T>
 T Parse(const std::string_view text) {

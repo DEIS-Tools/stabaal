@@ -1,11 +1,11 @@
-#ifndef STABAAL_DYNAMIC_ARRAY_HPP
-#define STABAAL_DYNAMIC_ARRAY_HPP
+#ifndef STABAAL_DETAIL_DYNAMIC_ARRAY_HPP
+#define STABAAL_DETAIL_DYNAMIC_ARRAY_HPP
 
 #include <concepts>
 #include <cstddef>
 #include <memory>
 
-namespace stabaal {
+namespace stabaal::detail {
 
 // Stores only the array data to avoid overhead, and size must be tracked by callers.
 template <std::default_initializable T>
@@ -35,6 +35,6 @@ class DynamicArray {
     std::unique_ptr<T[]> data_;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
 };
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif

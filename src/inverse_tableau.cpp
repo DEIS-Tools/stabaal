@@ -1,4 +1,4 @@
-#include "inverse_tableau.hpp"
+#include "stabaal/detail/inverse_tableau.hpp"
 
 #include <cassert>
 #include <cstddef>
@@ -9,11 +9,11 @@
 #include <string>
 #include <utility>
 
-#include "basis_table.hpp"
-#include "pauli_string.hpp"
-#include "types.hpp"
+#include "stabaal/detail/basis_table.hpp"
+#include "stabaal/detail/pauli_string.hpp"
+#include "stabaal/detail/types.hpp"
 
-using namespace stabaal;
+namespace stabaal::detail {
 
 namespace {
 
@@ -253,3 +253,5 @@ void InverseTableau::Print() const {
 
     std::cout << '\n';
 }
+
+}  // namespace stabaal::detail

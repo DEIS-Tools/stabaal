@@ -1,5 +1,5 @@
-#ifndef STABAAL_PAULI_STRING_HPP
-#define STABAAL_PAULI_STRING_HPP
+#ifndef STABAAL_DETAIL_PAULI_STRING_HPP
+#define STABAAL_DETAIL_PAULI_STRING_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -7,7 +7,7 @@
 #include "dynamic_bitset.hpp"
 #include "types.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 class PauliString {
    public:
     PauliString() noexcept;
@@ -39,6 +39,6 @@ class PauliString {
     DynamicBitset xz_;
 };
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif

@@ -2,13 +2,11 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
-#include "inverse_tableau.hpp"
-#include "simulator.hpp"
-#include "types.hpp"
+#include "stabaal/simulator.hpp"
 
 namespace py = pybind11;
 
-using InverseSim = stabaal::Simulator<stabaal::InverseTableau>;
+using InverseSim = stabaal::Simulator<>;
 
 PYBIND11_MODULE(stabaal, m) {
     m.doc() = "Dynamic Stabilizer Circuit Simulation";

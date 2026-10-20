@@ -4,7 +4,8 @@
 #include <concepts>
 #include <cstddef>
 
-#include "types.hpp"
+#include "detail/inverse_tableau.hpp"
+#include "detail/types.hpp"  // IWYU pragma: export
 
 namespace stabaal {
 
@@ -24,7 +25,7 @@ concept SimulationBackend =
         { const_backend.MemoryUsage() } noexcept -> std::same_as<std::size_t>;
     };
 
-template <SimulationBackend Backend>
+template <SimulationBackend Backend = detail::InverseTableau>
 class Simulator {
    public:
     explicit Simulator(QubitIdx num_qubits) : backend_(num_qubits) {}

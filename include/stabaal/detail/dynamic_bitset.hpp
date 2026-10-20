@@ -1,5 +1,5 @@
-#ifndef STABAAL_DYNAMIC_BITSET_HPP
-#define STABAAL_DYNAMIC_BITSET_HPP
+#ifndef STABAAL_DETAIL_DYNAMIC_BITSET_HPP
+#define STABAAL_DETAIL_DYNAMIC_BITSET_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -7,7 +7,7 @@
 
 #include "dynamic_array.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 class DynamicBitset {
    public:
@@ -32,6 +32,6 @@ class DynamicBitset {
     DynamicArray<std::uint64_t> words_;
 };
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif

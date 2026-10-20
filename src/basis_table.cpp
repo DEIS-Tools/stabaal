@@ -1,14 +1,14 @@
-#include "basis_table.hpp"
+#include "stabaal/detail/basis_table.hpp"
 
 #include <bit>
 #include <cstddef>
 #include <utility>
 
-#include "dynamic_array.hpp"
-#include "dynamic_bitset.hpp"
-#include "pauli_string.hpp"
+#include "stabaal/detail/dynamic_array.hpp"
+#include "stabaal/detail/dynamic_bitset.hpp"
+#include "stabaal/detail/pauli_string.hpp"
 
-using namespace stabaal;
+namespace stabaal::detail {
 
 namespace {
 
@@ -56,3 +56,5 @@ std::size_t BasisTable::AllocatedBytes(const std::size_t num_qubits) noexcept {
            DynamicBitset::AllocatedBytes(num_qubits) +
            num_qubits * PauliString::AllocatedBytes(num_qubits);
 }
+
+}  // namespace stabaal::detail

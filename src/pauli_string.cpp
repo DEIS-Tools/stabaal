@@ -1,14 +1,14 @@
-#include "pauli_string.hpp"
+#include "stabaal/detail/pauli_string.hpp"
 
 #include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <span>
 
-#include "dynamic_bitset.hpp"
-#include "types.hpp"
+#include "stabaal/detail/dynamic_bitset.hpp"
+#include "stabaal/detail/types.hpp"
 
-using namespace stabaal;
+namespace stabaal::detail {
 
 namespace {
 
@@ -92,3 +92,5 @@ std::int64_t PauliString::XorWithPhase(const PauliString& other,
     return XorWordsWithPhase(xz_.Words(BitsRequired(num_qubits)),
                              other.xz_.Words(BitsRequired(num_qubits)));
 }
+
+}  // namespace stabaal::detail

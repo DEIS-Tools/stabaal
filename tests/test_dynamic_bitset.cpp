@@ -6,9 +6,9 @@
 #include <utility>
 #include <vector>
 
-#include "dynamic_bitset.hpp"
+#include "stabaal/detail/dynamic_bitset.hpp"
 
-using stabaal::DynamicBitset;
+using stabaal::detail::DynamicBitset;
 
 TEST_CASE("DynamicBitset starts zero with packed storage", "[bitset]") {
     const auto n{GENERATE(0, 1, 63, 64, 65, 127, 128, 129, 193, 257, 513, 1024, 1025)};

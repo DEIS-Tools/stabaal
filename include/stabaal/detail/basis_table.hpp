@@ -1,5 +1,5 @@
-#ifndef STABAAL_BASIS_TABLE_HPP
-#define STABAAL_BASIS_TABLE_HPP
+#ifndef STABAAL_DETAIL_BASIS_TABLE_HPP
+#define STABAAL_DETAIL_BASIS_TABLE_HPP
 
 #include <cstddef>
 
@@ -7,7 +7,7 @@
 #include "dynamic_bitset.hpp"
 #include "pauli_string.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 struct BasisTable {
     explicit BasisTable(std::size_t num_qubits);
@@ -27,6 +27,6 @@ struct BasisTable {
     DynamicArray<PauliString> gens;
 };
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif

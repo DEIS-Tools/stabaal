@@ -1,4 +1,4 @@
-#include "dynamic_bitset.hpp"
+#include "stabaal/detail/dynamic_bitset.hpp"
 
 #include <algorithm>
 #include <bit>
@@ -9,9 +9,9 @@
 #include <span>
 #include <utility>
 
-#include "dynamic_array.hpp"
+#include "stabaal/detail/dynamic_array.hpp"
 
-using namespace stabaal;
+namespace stabaal::detail {
 
 namespace {
 
@@ -98,3 +98,5 @@ std::span<std::uint64_t> DynamicBitset::Words(const std::size_t num_bits) noexce
 std::span<const std::uint64_t> DynamicBitset::Words(const std::size_t num_bits) const noexcept {
     return {words_.Data(), WordCount(num_bits)};
 }
+
+}  // namespace stabaal::detail

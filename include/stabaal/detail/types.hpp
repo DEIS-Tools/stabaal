@@ -1,5 +1,5 @@
-#ifndef STABAAL_TYPES_HPP
-#define STABAAL_TYPES_HPP
+#ifndef STABAAL_DETAIL_TYPES_HPP
+#define STABAAL_DETAIL_TYPES_HPP
 
 #include <cstdint>
 
