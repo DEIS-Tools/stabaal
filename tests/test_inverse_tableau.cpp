@@ -5,23 +5,26 @@
 #include <complex>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <random>
 #include <set>
+#include <sstream>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
-#include "basis_table.hpp"
-#include "inverse_tableau.hpp"
-#include "types.hpp"
+#include "stabaal/detail/basis_table.hpp"
+#include "stabaal/detail/inverse_tableau.hpp"
+#include "stabaal/detail/types.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 // Builds unsigned operators from a Pauli string, e.g. Pauli("XIZY") = X⊗I⊗Z⊗Y.
 // Character i is the Pauli acting on qubit i.
 static PauliString Pauli(const std::string& s) {
-    PauliString g{static_cast<QubitIdx>(s.size())};
+    PauliString g{s.size()};
     for (std::size_t i{0}; i < s.size(); ++i) {
         switch (s[i]) {
             case 'I':
@@ -44,9 +47,8 @@ static PauliString Pauli(const std::string& s) {
 }
 
 // Renders a generator as a signed Pauli string, e.g. "-XIZY".
-static std::string Str(const PauliString& g, const bool sign = false) {
+static std::string Str(const PauliString& g, const std::size_t n, const bool sign = false) {
     std::string s{sign ? "-" : "+"};
-    const auto n{g.Size()};
     for (std::size_t i{0}; i < n; ++i) {
         const bool x{g.GetX(i)};
         const bool z{g.GetZ(i)};
@@ -290,20 +292,125 @@ TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[inverse
 
 TEST_CASE("BasisTable appends identity rows and positive signs", "[basis][add]") {
     BasisTable table{2};
-    REQUIRE(table.gens.size() == 2);
-    REQUIRE(table.signs.Size() == 2);
-    CHECK_FALSE(table.signs.Any());
+    CHECK_FALSE(table.signs.Any(2));
     table.gens[0].SetX(0);
     table.signs.Set(0, true);
-    table.Add();
-    REQUIRE(table.gens.size() == 3);
-    REQUIRE(table.signs.Size() == 3);
+    table.Add(2);
     CHECK(table.signs.Get(0));
     CHECK_FALSE(table.signs.Get(1));
     CHECK_FALSE(table.signs.Get(2));
-    CHECK(Str(table.gens[0], table.signs.Get(0)) == "-XII");
-    CHECK(Str(table.gens[1], table.signs.Get(1)) == "+III");
-    CHECK(Str(table.gens[2], table.signs.Get(2)) == "+III");
+    CHECK(Str(table.gens[0], 3, table.signs.Get(0)) == "-XII");
+    CHECK(Str(table.gens[1], 3, table.signs.Get(1)) == "+III");
+    CHECK(Str(table.gens[2], 3, table.signs.Get(2)) == "+III");
+}
+
+TEST_CASE("BasisTable growth reuses capacity and preserves rows", "[basis][growth]") {
+    BasisTable table{0};
+    CHECK_FALSE(table.gens);
+    CHECK(BasisTable::AllocatedBytes(0) == 0);
+    for (std::size_t n{0}; n < 130; ++n) {
+        const auto* previous{table.gens.Data()};
+        table.Add(n);
+        if (n != 0 && (n & (n - 1)) != 0) CHECK(table.gens.Data() == previous);
+        for (std::size_t row{0}; row <= n; ++row) {
+            CHECK(table.signs.Get(row) == (row < n));
+            for (std::size_t col{0}; col <= n; ++col) {
+                CHECK(table.gens[row].GetX(col) == (row < n && row == col));
+                CHECK_FALSE(table.gens[row].GetZ(col));
+            }
+        }
+        table.gens[n].SetX(n);
+        table.signs.Set(n);
+    }
+}
+
+TEST_CASE("InverseTableau copies remain independent after growth", "[inverse_tableau][copy]") {
+    const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65})};
+    InverseTableau original{n};
+    original.Add();
+    original.ApplyX(n);
+    InverseTableau copy{original};
+    InverseTableau assigned{0};
+    assigned = original;
+    original.ApplyX(n);
+    CHECK_FALSE(original.MeasureZ(n));
+    CHECK(copy.MeasureZ(n));
+    CHECK(assigned.MeasureZ(n));
+    copy.Add();
+    assigned.Add();
+    CHECK_FALSE(copy.MeasureZ(n + 1));
+    CHECK_FALSE(assigned.MeasureZ(n + 1));
+    CHECK(copy.MeasureZ(n));
+    CHECK(assigned.MeasureZ(n));
+}
+
+TEST_CASE("BasisTable copies preserve independent signs and rows", "[basis][copy]") {
+    const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65})};
+    BasisTable original{n};
+    original.Add(n);
+    original.signs.Set(n);
+    original.gens[n].SetX(n);
+
+    BasisTable copy{original, n + 1};
+    BasisTable assigned{0};
+    assigned = BasisTable{original, n + 1};
+    original.signs.Set(n, false);
+    original.gens[n].SetX(n, false);
+    CHECK(copy.signs.Get(n));
+    CHECK(copy.gens[n].GetX(n));
+    CHECK(assigned.signs.Get(n));
+    CHECK(assigned.gens[n].GetX(n));
+
+    BasisTable moved{std::move(copy)};
+    CHECK(moved.signs.Get(n));
+    copy.Add(0);
+    CHECK_FALSE(copy.signs.Get(0));
+    assigned = std::move(moved);
+    CHECK(assigned.gens[n].GetX(n));
+    moved.Add(0);
+    CHECK_FALSE(moved.signs.Get(0));
+}
+
+TEST_CASE("PauliString copies and moves preserve storage ownership", "[pauli][copy]") {
+    const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65}, QubitIdx{129})};
+    auto original{Pauli(std::string(n, 'Z'))};
+    PauliString copy{original, n};
+    PauliString assigned;
+    assigned = PauliString{original, n};
+    original.AddI(n);
+    CHECK(Str(copy, n) == "+" + std::string(n, 'Z'));
+    CHECK(Str(assigned, n) == Str(copy, n));
+
+    PauliString moved{std::move(copy)};
+    CHECK(Str(moved, n) == Str(assigned, n));
+    copy.AddI(0);
+    CHECK(Str(copy, 1) == "+I");
+    assigned = std::move(moved);
+    CHECK(Str(assigned, n) == "+" + std::string(n, 'Z'));
+    moved.AddI(0);
+    CHECK(Str(moved, 1) == "+I");
+    if (n != 0) {
+        assigned.SetX(n - 1);
+        CHECK_FALSE(original.GetX(n - 1));
+    }
+}
+
+TEST_CASE("PauliString grows across word boundaries", "[pauli][growth]") {
+    const auto n{GENERATE(0, 1, 31, 32, 33, 63, 64, 65, 127, 128, 129)};
+    auto g{Pauli(std::string(n, 'Z'))};
+    CHECK_FALSE(g.AnyX(n));
+    g.AddI(n);
+    CHECK(Str(g, n + 1) == "+" + std::string(n, 'Z') + "I");
+    g.SetX(n);
+    CHECK(g.AnyX(n + 1));
+    g.SwapXZ(n);
+    CHECK_FALSE(g.AnyX(n + 1));
+    CHECK(g.GetZ(n));
+    g.SetZ(n, false);
+    CHECK(Str(g, n + 1) == "+" + std::string(n, 'Z') + "I");
+    g.SetX(n);
+    g.SetX(n, false);
+    CHECK_FALSE(g.AnyX(n + 1));
 }
 
 TEST_CASE("PauliString swaps X/Z components", "[pauli][swap]") {
@@ -312,22 +419,22 @@ TEST_CASE("PauliString swaps X/Z components", "[pauli][swap]") {
     auto expected{std::string{"+IXZY"}};
     expected[idx + 1] = std::string{"IZXY"}[idx];
     g.SwapXZ(idx);
-    CHECK(Str(g) == expected);
+    CHECK(Str(g, 4) == expected);
     g.SwapXZ(idx);
-    CHECK(Str(g) == "+IXZY");
+    CHECK(Str(g, 4) == "+IXZY");
 }
 
 TEST_CASE("PauliString multiplication across block boundaries", "[pauli][xor]") {
     const auto n{GENERATE(0, 1, 63, 64, 65, 129)};
     auto a{Pauli(std::string(n, 'X'))};
     const auto b{Pauli(std::string(n, 'Y'))};
-    CHECK(a.XorWithPhase(b) == n);
-    CHECK(Str(a) == "+" + std::string(n, 'Z'));
-    CHECK(Str(b) == "+" + std::string(n, 'Y'));
-    CHECK(a.XorWithPhase(b) == 3 * n);
-    CHECK(Str(a) == "+" + std::string(n, 'X'));
-    CHECK(a.XorWithPhase(a) == 0);
-    CHECK(Str(a) == "+" + std::string(n, 'I'));
+    CHECK(a.XorWithPhase(b, n) == n);
+    CHECK(Str(a, n) == "+" + std::string(n, 'Z'));
+    CHECK(Str(b, n) == "+" + std::string(n, 'Y'));
+    CHECK(a.XorWithPhase(b, n) == 3 * n);
+    CHECK(Str(a, n) == "+" + std::string(n, 'X'));
+    CHECK(a.XorWithPhase(a, n) == 0);
+    CHECK(Str(a, n) == "+" + std::string(n, 'I'));
 }
 
 TEST_CASE("Fused XOR preserves phase, result, and source", "[pauli][phase][xor]") {
@@ -357,12 +464,12 @@ TEST_CASE("Fused XOR preserves phase, result, and source", "[pauli][phase][xor]"
         }
         auto a{Pauli(lhs)};
         const auto b{Pauli(rhs)};
-        CHECK(a.XorWithPhase(b) == exponent);
-        CHECK(Str(a) == "+" + expected);
-        CHECK(Str(b) == "+" + rhs);
+        CHECK(a.XorWithPhase(b, n) == exponent);
+        CHECK(Str(a, n) == "+" + expected);
+        CHECK(Str(b, n) == "+" + rhs);
 
-        CHECK(a.XorWithPhase(a) == self_exponent);
-        CHECK(Str(a) == "+" + std::string(n, 'I'));
+        CHECK(a.XorWithPhase(a, n) == self_exponent);
+        CHECK(Str(a, n) == "+" + std::string(n, 'I'));
     }
 }
 
@@ -391,7 +498,7 @@ TEST_CASE("e: single-qubit table", "[pauli][phase]") {
         {"Z", "Z", 0},
     }))};
     CAPTURE(c.a, c.b);
-    CHECK(Pauli(c.a).XorWithPhase(Pauli(c.b)) == c.e);
+    CHECK(Pauli(c.a).XorWithPhase(Pauli(c.b), 1) == c.e);
 }
 
 TEST_CASE("e: matches Pauli matrix multiplication", "[pauli][phase]") {
@@ -401,9 +508,9 @@ TEST_CASE("e: matches Pauli matrix multiplication", "[pauli][phase]") {
             CAPTURE(a, b);
             const PauliString ga{Pauli(std::string(1, a))};
             const PauliString gb{Pauli(std::string(1, b))};
-            PauliString prod{ga};
-            const auto exponent{prod.XorWithPhase(gb)};
-            const char p{Str(prod)[1]};
+            PauliString prod{ga, 1};
+            const auto exponent{prod.XorWithPhase(gb, 1)};
+            const char p{Str(prod, 1)[1]};
 
             const std::int64_t e{((exponent % 4) + 4) % 4};
             const std::complex<double> factor{std::pow(imaginary_unit, e)};
@@ -429,10 +536,10 @@ TEST_CASE("e: is additive over tensor products", "[pauli][phase]") {
     const auto& [a, b]{pair};
     std::int64_t sum{0};
     for (std::size_t i{0}; i < a.size(); ++i) {
-        sum += Pauli(std::string(1, a[i])).XorWithPhase(Pauli(std::string(1, b[i])));
+        sum += Pauli(std::string(1, a[i])).XorWithPhase(Pauli(std::string(1, b[i])), 1);
     }
     CAPTURE(a, b);
-    CHECK(Pauli(a).XorWithPhase(Pauli(b)) == sum);
+    CHECK(Pauli(a).XorWithPhase(Pauli(b), a.size()) == sum);
 }
 
 TEST_CASE("InverseTableau rejects invalid gate and measurement indices",
@@ -452,4 +559,4 @@ TEST_CASE("InverseTableau rejects invalid gate and measurement indices",
     for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
 }
 
-}  // namespace stabaal
+}  // namespace stabaal::detail

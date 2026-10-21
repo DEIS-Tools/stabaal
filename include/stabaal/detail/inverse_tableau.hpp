@@ -1,18 +1,14 @@
-#ifndef STABAAL_INVERSE_TABLEAU_HPP
-#define STABAAL_INVERSE_TABLEAU_HPP
+#ifndef STABAAL_DETAIL_INVERSE_TABLEAU_HPP
+#define STABAAL_DETAIL_INVERSE_TABLEAU_HPP
 
 #include <cstddef>
 #include <cstdint>
-#include <iomanip>
-#include <iostream>
-#include <random>
-#include <sstream>
 
 #include "basis_table.hpp"
 #include "pauli_string.hpp"
 #include "types.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 class InverseTableau {
    public:
@@ -24,24 +20,28 @@ class InverseTableau {
 
     explicit InverseTableau(QubitIdx num_qubits);
 
+    InverseTableau(const InverseTableau& other);
+    InverseTableau& operator=(const InverseTableau& other);
+    InverseTableau(InverseTableau&& other) noexcept = default;
+    InverseTableau& operator=(InverseTableau&& other) noexcept = default;
+    ~InverseTableau() noexcept = default;
+
     void Add();
 
-    bool MeasureZ(QubitIdx q);
     bool MeasureX(QubitIdx q);
+    bool MeasureZ(QubitIdx q);
 
     void ApplyH(QubitIdx q);
-    void ApplyCx(QubitIdx c, QubitIdx t);
-    void ApplyX(QubitIdx q);
     void ApplyS(QubitIdx q);
+    void ApplyX(QubitIdx q);
     void ApplyZ(QubitIdx q);
+    void ApplyCx(QubitIdx c, QubitIdx t);
 
     void Print() const;
 
     std::size_t MemoryUsage() const noexcept;
 
    private:
-    static std::mt19937& RandomEngine();
-
     BasisTable computational_;
     BasisTable hadamard_;
     QubitIdx num_qubits_;
@@ -49,11 +49,8 @@ class InverseTableau {
     void CleanUp(QubitIdx pivot, const PauliString& gen) noexcept;
     void Collapse(QubitIdx pivot, bool p) noexcept;
     bool RandomMeasurement(QubitIdx q, Basis b);
-
-    static bool Phase(std::int64_t exponent, bool a_sign, bool b_sign,
-                      std::uint8_t phase_rule) noexcept;
 };
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif

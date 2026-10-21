@@ -14,10 +14,11 @@
 #include <system_error>
 #include <vector>
 
-#include "inverse_tableau.hpp"
-#include "types.hpp"
+#include "stabaal/simulator.hpp"
 
 namespace {
+
+using BenchSimulator = stabaal::Simulator<>;
 
 template <typename T>
 T Parse(const std::string_view text) {
@@ -71,38 +72,38 @@ int main(int argc, char** argv) {
                     {static_cast<GateKind>(rng() % (qubits == 1 ? 4 : 5)), q, target});
             }
 
-            stabaal::InverseTableau tableau{qubits};
+            BenchSimulator simulator{qubits};
             const auto start{std::chrono::steady_clock::now()};
             for (const auto& gate : circuit) {
                 switch (gate.kind) {
                     case GateKind::kH:
-                        tableau.ApplyH(gate.q);
+                        simulator.H(gate.q);
                         break;
                     case GateKind::kX:
-                        tableau.ApplyX(gate.q);
+                        simulator.X(gate.q);
                         break;
                     case GateKind::kS:
-                        tableau.ApplyS(gate.q);
+                        simulator.S(gate.q);
                         break;
                     case GateKind::kZ:
-                        tableau.ApplyZ(gate.q);
+                        simulator.Z(gate.q);
                         break;
                     case GateKind::kCx:
-                        tableau.ApplyCx(gate.q, gate.target);
+                        simulator.Cx(gate.q, gate.target);
                         break;
                 }
             }
 
             const auto stop{std::chrono::steady_clock::now()};
             times.push_back(std::chrono::duration<double>{stop - start}.count());
-            if (repeat == 0) memory_bytes = tableau.MemoryUsage();
-            if (tableau.MeasureZ(repeat % qubits)) ++checksum;
+            if (repeat == 0) memory_bytes = simulator.MemoryUsage();
+            if (simulator.MeasureZ(repeat % qubits)) ++checksum;
         }
 
         std::sort(times.begin(), times.end());
         const auto median{(times[(times.size() - 1) / 2] + times[times.size() / 2]) / 2};
         std::cout << "qubits=" << qubits << " gates=" << gates << " repeats=" << repeats
-                  << std::fixed << std::setprecision(3) << "\ntableau_memory=" << memory_bytes
+                  << std::fixed << std::setprecision(3) << "\nsimulator_memory=" << memory_bytes
                   << " bytes (" << static_cast<double>(memory_bytes) / 1024.0
                   << " KiB; excluding allocator overhead)\nmedian=" << median << " s, "
                   << median * 1e9 / static_cast<double>(gates) << " ns/gate, "
