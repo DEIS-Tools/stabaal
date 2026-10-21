@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <array>
 #include <charconv>
 #include <chrono>
 #include <cstddef>
@@ -15,13 +16,14 @@
 #include <vector>
 
 #include "stabaal/simulator.hpp"
+#include "stabaal/types.hpp"
 
 namespace {
 
 using BenchSimulator = stabaal::Simulator<>;
 
 template <typename T>
-T Parse(const std::string_view text) {
+[[nodiscard]] T Parse(const std::string_view text) {
     T value{};
     const auto* const last{std::to_address(text.end())};
     const auto [end, error]{std::from_chars(std::to_address(text.begin()), last, value)};
@@ -30,6 +32,17 @@ T Parse(const std::string_view text) {
     }
 
     return value;
+}
+
+void PrintTiming(const std::string_view name, std::vector<double>& samples,
+                 const std::size_t operation_count) {
+    std::sort(samples.begin(), samples.end());
+    const auto median{
+        (samples[(samples.size() - 1) / 2] + samples[samples.size() / 2]) / 2,
+    };
+    const auto operations{static_cast<double>(operation_count)};
+    std::cout << name << ": median=" << median << " s, " << median * 1e9 / operations << " ns/op, "
+              << operations / median / 1e6 << " million ops/s\n";
 }
 
 enum class GateKind : std::uint8_t { kH, kX, kS, kZ, kCx };
@@ -50,17 +63,20 @@ int main(int argc, char** argv) {
     }
 
     try {
-        const auto qubits{argc > 1 ? Parse<stabaal::QubitIdx>(args[1]) : stabaal::QubitIdx{256}};
+        const auto qubits{
+            argc > 1 ? Parse<stabaal::QubitIdx>(args[1]) : stabaal::QubitIdx{256},
+        };
         const auto gates{argc > 2 ? Parse<std::size_t>(args[2]) : std::size_t{1000000}};
         const auto repeats{argc > 3 ? Parse<std::uint32_t>(args[3]) : std::uint32_t{5}};
         std::uniform_int_distribution<stabaal::QubitIdx> qubit{0, qubits - 1};
         std::vector<Gate> circuit{};
         circuit.reserve(gates);
 
-        std::vector<double> times{};
-        times.reserve(repeats);
-        std::uint32_t checksum{0};
+        std::array<std::vector<double>, 3> times{};
+        auto& [gate_times, measure_z_times, copy_times]{times};
+        for (auto& samples : times) samples.reserve(repeats);
         std::size_t memory_bytes{0};
+        [[maybe_unused]] volatile bool outcome{false};
         for (std::uint32_t repeat{0}; repeat < repeats; ++repeat) {
             std::mt19937 rng{1234U + repeat};
             circuit.clear();
@@ -95,20 +111,30 @@ int main(int argc, char** argv) {
             }
 
             const auto stop{std::chrono::steady_clock::now()};
-            times.push_back(std::chrono::duration<double>{stop - start}.count());
+            gate_times.push_back(std::chrono::duration<double>{stop - start}.count());
             if (repeat == 0) memory_bytes = simulator.MemoryUsage();
-            if (simulator.MeasureZ(repeat % qubits)) ++checksum;
+            const auto copy_start{std::chrono::steady_clock::now()};
+            auto measured{simulator};
+            copy_times.push_back(
+                std::chrono::duration<double>{std::chrono::steady_clock::now() - copy_start}
+                    .count());
+            const auto measurement_start{std::chrono::steady_clock::now()};
+            for (stabaal::QubitIdx q{0}; q < qubits; ++q) {
+                outcome = measured.MeasureZ(q);
+            }
+            const auto measurement_stop{std::chrono::steady_clock::now()};
+            measure_z_times.push_back(
+                std::chrono::duration<double>{measurement_stop - measurement_start}.count());
+            outcome = simulator.MeasureZ(0);
         }
 
-        std::sort(times.begin(), times.end());
-        const auto median{(times[(times.size() - 1) / 2] + times[times.size() / 2]) / 2};
         std::cout << "qubits=" << qubits << " gates=" << gates << " repeats=" << repeats
                   << std::fixed << std::setprecision(3) << "\nsimulator_memory=" << memory_bytes
                   << " bytes (" << static_cast<double>(memory_bytes) / 1024.0
-                  << " KiB; excluding allocator overhead)\nmedian=" << median << " s, "
-                  << median * 1e9 / static_cast<double>(gates) << " ns/gate, "
-                  << static_cast<double>(gates) / median / 1e6 << " million gates/s\n"
-                  << "checksum=" << checksum << '\n';
+                  << " KiB; excluding allocator overhead)\n";
+        PrintTiming("gates", gate_times, gates);
+        PrintTiming("MeasureZ", measure_z_times, qubits);
+        PrintTiming("copy", copy_times, 1);
     } catch (const std::exception& error) {
         std::cerr << error.what() << '\n';
         return 1;

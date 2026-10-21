@@ -3,40 +3,35 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <span>
 
-#include "dynamic_bitset.hpp"
-#include "types.hpp"
+#include "stabaal/types.hpp"
 
 namespace stabaal::detail {
-class PauliString {
+class PauliStringView {
    public:
-    PauliString() noexcept;
-    explicit PauliString(std::size_t num_qubits);
+    PauliStringView(std::span<std::uint64_t> xs, std::span<std::uint64_t> zs) noexcept;
 
-    PauliString(const PauliString& other, std::size_t num_qubits);
-    PauliString(const PauliString& other) = delete;
-    PauliString& operator=(const PauliString& other) = delete;
-    PauliString(PauliString&& other) noexcept = default;
-    PauliString& operator=(PauliString&& other) noexcept = default;
+    [[nodiscard]] bool AnyX(std::size_t num_qubits) const noexcept;
 
-    ~PauliString() noexcept = default;
-
-    void AddI(std::size_t old_num_qubits);
-
-    static std::size_t AllocatedBytes(std::size_t num_qubits) noexcept;
-    bool AnyX(std::size_t num_qubits) const noexcept;
-
-    bool GetX(QubitIdx idx) const noexcept;
-    bool GetZ(QubitIdx idx) const noexcept;
+    [[nodiscard]] bool GetX(QubitIdx idx) const noexcept;
+    [[nodiscard]] bool GetZ(QubitIdx idx) const noexcept;
 
     void SetX(QubitIdx idx, bool val = true) noexcept;
     void SetZ(QubitIdx idx, bool val = true) noexcept;
     void SwapXZ(QubitIdx idx) noexcept;
 
-    std::int64_t XorWithPhase(const PauliString& other, std::size_t num_qubits) noexcept;
+    [[nodiscard]] bool MeasurementTargets(QubitIdx pivot,
+                                          std::span<std::uint64_t> targets) const noexcept;
+    [[nodiscard]] bool CleanUp(QubitIdx pivot, std::span<const std::uint64_t> targets,
+                               bool apply_s_dagger) noexcept;
+
+    [[nodiscard]] std::int64_t XorWithPhase(const PauliStringView& other,
+                                            std::size_t num_qubits) noexcept;
 
    private:
-    DynamicBitset xz_;
+    std::span<std::uint64_t> xs_;
+    std::span<std::uint64_t> zs_;
 };
 
 }  // namespace stabaal::detail

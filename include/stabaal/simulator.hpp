@@ -5,7 +5,7 @@
 #include <cstddef>
 
 #include "detail/inverse_tableau.hpp"
-#include "detail/types.hpp"  // IWYU pragma: export
+#include "types.hpp"
 
 namespace stabaal {
 
@@ -48,7 +48,7 @@ class Simulator {
 
     void Print() const { backend_.Print(); }
 
-    std::size_t MemoryUsage() const noexcept { return backend_.MemoryUsage(); }
+    [[nodiscard]] std::size_t MemoryUsage() const noexcept { return backend_.MemoryUsage(); }
 
    private:
     Backend backend_;
