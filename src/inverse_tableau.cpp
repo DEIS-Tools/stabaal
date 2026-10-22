@@ -60,45 +60,39 @@ void InverseTableau::Add() {
     hadamard_.gens[last].SetX(last);
 }
 
-void InverseTableau::CleanUp(const QubitIdx pivot, const PauliString& gen) noexcept {
+void InverseTableau::CleanUp(const QubitIdx pivot, const PauliString &gen) noexcept {
     // cx between pivot and all columns with x in the measured row.
+    auto cx_generator = [](BasisTable &b_table, size_t i, size_t t, size_t c) {
+        auto &gen = b_table.gens[i];
+
+        b_table.signs.Set(
+            i, 
+            b_table.signs.Get(i) != (gen.GetX(c) && gen.GetZ(t) && (gen.GetX(t) == gen.GetZ(c)))
+        );
+        gen.SetX(c, gen.GetX(t) != gen.GetX(c));
+        gen.SetX(t, gen.GetZ(c) != gen.GetZ(t));
+    };
+
+    auto s_dagger_generator = [](BasisTable &b_table, size_t i, size_t pivot) {
+        auto &gen = b_table.gens[i];
+
+        b_table.signs.Set(i, b_table.signs.Get(i) != (gen.GetX(pivot) && !gen.GetZ(pivot)));
+        gen.SetX(pivot, gen.GetZ(pivot) != gen.GetX(pivot));
+    };
+
     for (std::size_t i{static_cast<std::size_t>(pivot) + 1}; i < num_qubits_; ++i) {
         if (!gen.GetX(i)) continue;
-
         for (std::size_t j{0}; j < num_qubits_; ++j) {
-            computational_.signs.Set(
-                j, computational_.signs.Get(j) !=
-                       (computational_.gens[j].GetX(pivot) && computational_.gens[j].GetZ(i) &&
-                        (computational_.gens[j].GetX(i) == computational_.gens[j].GetZ(pivot))));
-            computational_.gens[j].SetX(
-                i, computational_.gens[j].GetX(i) != computational_.gens[j].GetX(pivot));
-            computational_.gens[j].SetZ(
-                pivot, computational_.gens[j].GetZ(pivot) != computational_.gens[j].GetZ(i));
-
-            hadamard_.signs.Set(j,
-                                hadamard_.signs.Get(j) !=
-                                    (hadamard_.gens[j].GetX(pivot) && hadamard_.gens[j].GetZ(i) &&
-                                     (hadamard_.gens[j].GetX(i) == hadamard_.gens[j].GetZ(pivot))));
-            hadamard_.gens[j].SetX(i, hadamard_.gens[j].GetX(i) != hadamard_.gens[j].GetX(pivot));
-            hadamard_.gens[j].SetZ(pivot,
-                                   hadamard_.gens[j].GetZ(pivot) != hadamard_.gens[j].GetZ(i));
+            cx_generator(computational_, j, i, pivot);
+            cx_generator(hadamard_, j, i, pivot);
         }
     }
 
     if (!gen.GetZ(pivot)) return;
-
     // s^dagger applied to pivot
     for (std::size_t i{0}; i < num_qubits_; ++i) {
-        hadamard_.signs.Set(i, hadamard_.signs.Get(i) != (hadamard_.gens[i].GetX(pivot) &&
-                                                          !hadamard_.gens[i].GetZ(pivot)));
-        hadamard_.gens[i].SetZ(pivot,
-                               hadamard_.gens[i].GetZ(pivot) != hadamard_.gens[i].GetX(pivot));
-
-        computational_.signs.Set(
-            i, computational_.signs.Get(i) !=
-                   (computational_.gens[i].GetX(pivot) && !computational_.gens[i].GetZ(pivot)));
-        computational_.gens[i].SetZ(
-            pivot, computational_.gens[i].GetZ(pivot) != computational_.gens[i].GetX(pivot));
+       s_dagger_generator(computational_, i, pivot);
+       s_dagger_generator(hadamard_, i, pivot);
     }
 }
 
