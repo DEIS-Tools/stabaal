@@ -17,12 +17,12 @@ namespace stabaal::detail {
 
 namespace {
 
-std::mt19937& RandomEngine() {
+std::mt19937& randomEngine() {
     static thread_local std::mt19937 engine{std::random_device{}()};
     return engine;
 }
 
-bool Phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
+bool phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
            const std::uint8_t phase_rule) noexcept {
     assert(phase_rule < 4);
     const auto phase{static_cast<std::uint64_t>(exponent + phase_rule) & 3U};
@@ -35,8 +35,8 @@ bool Phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
 InverseTableau::InverseTableau(const QubitIdx num_qubits)
     : computational_{num_qubits}, hadamard_{num_qubits}, num_qubits_{num_qubits} {
     for (std::size_t i{0}; i < num_qubits; ++i) {
-        computational_.gens[i].SetZ(i);
-        hadamard_.gens[i].SetX(i);
+        computational_.gens[i].setZ(i);
+        hadamard_.gens[i].setX(i);
     }
 }
 
@@ -50,171 +50,171 @@ InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
     return *this;
 }
 
-void InverseTableau::Add() {
-    computational_.Add(num_qubits_);
-    hadamard_.Add(num_qubits_);
+void InverseTableau::add() {
+    computational_.add(num_qubits_);
+    hadamard_.add(num_qubits_);
     ++num_qubits_;
 
     const auto last{num_qubits_ - 1};
-    computational_.gens[last].SetZ(last);
-    hadamard_.gens[last].SetX(last);
+    computational_.gens[last].setZ(last);
+    hadamard_.gens[last].setX(last);
 }
 
-void InverseTableau::CleanUp(const QubitIdx pivot, const PauliString& gen) noexcept {
+void InverseTableau::cleanUp(const QubitIdx pivot, const PauliString& gen) noexcept {
     // cx between pivot and all columns with x in the measured row.
     for (std::size_t i{static_cast<std::size_t>(pivot) + 1}; i < num_qubits_; ++i) {
-        if (!gen.GetX(i)) continue;
+        if (!gen.getX(i)) continue;
 
         for (std::size_t j{0}; j < num_qubits_; ++j) {
-            computational_.signs.Set(
-                j, computational_.signs.Get(j) !=
-                       (computational_.gens[j].GetX(pivot) && computational_.gens[j].GetZ(i) &&
-                        (computational_.gens[j].GetX(i) == computational_.gens[j].GetZ(pivot))));
-            computational_.gens[j].SetX(
-                i, computational_.gens[j].GetX(i) != computational_.gens[j].GetX(pivot));
-            computational_.gens[j].SetZ(
-                pivot, computational_.gens[j].GetZ(pivot) != computational_.gens[j].GetZ(i));
+            computational_.signs.set(
+                j, computational_.signs.get(j) !=
+                       (computational_.gens[j].getX(pivot) && computational_.gens[j].getZ(i) &&
+                        (computational_.gens[j].getX(i) == computational_.gens[j].getZ(pivot))));
+            computational_.gens[j].setX(
+                i, computational_.gens[j].getX(i) != computational_.gens[j].getX(pivot));
+            computational_.gens[j].setZ(
+                pivot, computational_.gens[j].getZ(pivot) != computational_.gens[j].getZ(i));
 
-            hadamard_.signs.Set(j,
-                                hadamard_.signs.Get(j) !=
-                                    (hadamard_.gens[j].GetX(pivot) && hadamard_.gens[j].GetZ(i) &&
-                                     (hadamard_.gens[j].GetX(i) == hadamard_.gens[j].GetZ(pivot))));
-            hadamard_.gens[j].SetX(i, hadamard_.gens[j].GetX(i) != hadamard_.gens[j].GetX(pivot));
-            hadamard_.gens[j].SetZ(pivot,
-                                   hadamard_.gens[j].GetZ(pivot) != hadamard_.gens[j].GetZ(i));
+            hadamard_.signs.set(j,
+                                hadamard_.signs.get(j) !=
+                                    (hadamard_.gens[j].getX(pivot) && hadamard_.gens[j].getZ(i) &&
+                                     (hadamard_.gens[j].getX(i) == hadamard_.gens[j].getZ(pivot))));
+            hadamard_.gens[j].setX(i, hadamard_.gens[j].getX(i) != hadamard_.gens[j].getX(pivot));
+            hadamard_.gens[j].setZ(pivot,
+                                   hadamard_.gens[j].getZ(pivot) != hadamard_.gens[j].getZ(i));
         }
     }
 
-    if (!gen.GetZ(pivot)) return;
+    if (!gen.getZ(pivot)) return;
 
     // s^dagger applied to pivot
     for (std::size_t i{0}; i < num_qubits_; ++i) {
-        hadamard_.signs.Set(i, hadamard_.signs.Get(i) != (hadamard_.gens[i].GetX(pivot) &&
-                                                          !hadamard_.gens[i].GetZ(pivot)));
-        hadamard_.gens[i].SetZ(pivot,
-                               hadamard_.gens[i].GetZ(pivot) != hadamard_.gens[i].GetX(pivot));
+        hadamard_.signs.set(i, hadamard_.signs.get(i) != (hadamard_.gens[i].getX(pivot) &&
+                                                          !hadamard_.gens[i].getZ(pivot)));
+        hadamard_.gens[i].setZ(pivot,
+                               hadamard_.gens[i].getZ(pivot) != hadamard_.gens[i].getX(pivot));
 
-        computational_.signs.Set(
-            i, computational_.signs.Get(i) !=
-                   (computational_.gens[i].GetX(pivot) && !computational_.gens[i].GetZ(pivot)));
-        computational_.gens[i].SetZ(
-            pivot, computational_.gens[i].GetZ(pivot) != computational_.gens[i].GetX(pivot));
+        computational_.signs.set(
+            i, computational_.signs.get(i) !=
+                   (computational_.gens[i].getX(pivot) && !computational_.gens[i].getZ(pivot)));
+        computational_.gens[i].setZ(
+            pivot, computational_.gens[i].getZ(pivot) != computational_.gens[i].getX(pivot));
     }
 }
 
-void InverseTableau::Collapse(const QubitIdx pivot, const bool p) noexcept {
+void InverseTableau::collapse(const QubitIdx pivot, const bool p) noexcept {
     // Apply X on the pivot when the measured outcome is 1 (p).
     for (std::size_t i{0}; i < num_qubits_; ++i) {
-        computational_.gens[i].SwapXZ(pivot);
-        computational_.signs.Set(
-            i, computational_.signs.Get(i) != (computational_.gens[i].GetZ(pivot) &&
-                                               (p != computational_.gens[i].GetX(pivot))));
+        computational_.gens[i].swapXZ(pivot);
+        computational_.signs.set(
+            i, computational_.signs.get(i) != (computational_.gens[i].getZ(pivot) &&
+                                               (p != computational_.gens[i].getX(pivot))));
 
-        hadamard_.gens[i].SwapXZ(pivot);
-        hadamard_.signs.Set(i, hadamard_.signs.Get(i) != (hadamard_.gens[i].GetZ(pivot) &&
-                                                          (p != hadamard_.gens[i].GetX(pivot))));
+        hadamard_.gens[i].swapXZ(pivot);
+        hadamard_.signs.set(i, hadamard_.signs.get(i) != (hadamard_.gens[i].getZ(pivot) &&
+                                                          (p != hadamard_.gens[i].getX(pivot))));
     }
 }
 
-bool InverseTableau::RandomMeasurement(const QubitIdx q, const Basis b) {
+bool InverseTableau::randomMeasurement(const QubitIdx q, const Basis b) {
     const auto& table{(b == Basis::kComputational) ? computational_ : hadamard_};
     const auto& gen{table.gens[q]};
     QubitIdx pivot{0};
 
     for (QubitIdx i{0}; i < num_qubits_; ++i) {
-        if (gen.GetX(i)) {
+        if (gen.getX(i)) {
             pivot = i;
             break;
         }
     }
 
-    CleanUp(pivot, gen);
-    const bool p{std::bernoulli_distribution{0.5}(RandomEngine())};
-    Collapse(pivot, p);
-    return table.signs.Get(q);
+    cleanUp(pivot, gen);
+    const bool p{std::bernoulli_distribution{0.5}(randomEngine())};
+    collapse(pivot, p);
+    return table.signs.get(q);
 }
 
-bool InverseTableau::MeasureX(const QubitIdx q) {
+bool InverseTableau::measureX(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    if (hadamard_.gens[q].AnyX(num_qubits_)) {
-        return RandomMeasurement(q, Basis::kHadamard);
+    if (hadamard_.gens[q].anyX(num_qubits_)) {
+        return randomMeasurement(q, Basis::kHadamard);
     }
 
-    return hadamard_.signs.Get(q);
+    return hadamard_.signs.get(q);
 }
 
-bool InverseTableau::MeasureZ(const QubitIdx q) {
+bool InverseTableau::measureZ(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    if (computational_.gens[q].AnyX(num_qubits_)) {
-        return RandomMeasurement(q, Basis::kComputational);
+    if (computational_.gens[q].anyX(num_qubits_)) {
+        return randomMeasurement(q, Basis::kComputational);
     }
 
-    return computational_.signs.Get(q);
+    return computational_.signs.get(q);
 }
 
-void InverseTableau::ApplyH(const QubitIdx q) {
+void InverseTableau::applyH(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
     std::swap(computational_.gens[q], hadamard_.gens[q]);
-    const bool sign{computational_.signs.Get(q)};
-    computational_.signs.Set(q, hadamard_.signs.Get(q));
-    hadamard_.signs.Set(q, sign);
+    const bool sign{computational_.signs.get(q)};
+    computational_.signs.set(q, hadamard_.signs.get(q));
+    hadamard_.signs.set(q, sign);
 }
 
-void InverseTableau::ApplyS(const QubitIdx q) {
+void InverseTableau::applyS(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    const auto exponent{hadamard_.gens[q].XorWithPhase(computational_.gens[q], num_qubits_)};
-    hadamard_.signs.Set(q, Phase(exponent, hadamard_.signs.Get(q), computational_.signs.Get(q), 3));
+    const auto exponent{hadamard_.gens[q].xorWithPhase(computational_.gens[q], num_qubits_)};
+    hadamard_.signs.set(q, phase(exponent, hadamard_.signs.get(q), computational_.signs.get(q), 3));
 }
 
-void InverseTableau::ApplyX(const QubitIdx q) {
+void InverseTableau::applyX(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    computational_.signs.Set(q, !computational_.signs.Get(q));
+    computational_.signs.set(q, !computational_.signs.get(q));
 }
 
-void InverseTableau::ApplyZ(const QubitIdx q) {
+void InverseTableau::applyZ(const QubitIdx q) {
     if (q >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    hadamard_.signs.Set(q, !hadamard_.signs.Get(q));
+    hadamard_.signs.set(q, !hadamard_.signs.get(q));
 }
 
-void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
+void InverseTableau::applyCx(const QubitIdx c, const QubitIdx t) {
     if (c >= num_qubits_ || t >= num_qubits_) [[unlikely]] {
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    const auto hadamard_phase{hadamard_.gens[c].XorWithPhase(hadamard_.gens[t], num_qubits_)};
-    hadamard_.signs.Set(c,
-                        Phase(hadamard_phase, hadamard_.signs.Get(c), hadamard_.signs.Get(t), 0));
+    const auto hadamard_phase{hadamard_.gens[c].xorWithPhase(hadamard_.gens[t], num_qubits_)};
+    hadamard_.signs.set(c,
+                        phase(hadamard_phase, hadamard_.signs.get(c), hadamard_.signs.get(t), 0));
 
     const auto computational_phase{
-        computational_.gens[t].XorWithPhase(computational_.gens[c], num_qubits_),
+        computational_.gens[t].xorWithPhase(computational_.gens[c], num_qubits_),
     };
-    computational_.signs.Set(
-        t, Phase(computational_phase, computational_.signs.Get(t), computational_.signs.Get(c), 0));
+    computational_.signs.set(
+        t, phase(computational_phase, computational_.signs.get(t), computational_.signs.get(c), 0));
 }
 
-std::size_t InverseTableau::MemoryUsage() const noexcept {
-    return sizeof(*this) + 2 * BasisTable::AllocatedBytes(num_qubits_);
+std::size_t InverseTableau::memoryUsage() const noexcept {
+    return sizeof(*this) + 2 * BasisTable::allocatedBytes(num_qubits_);
 }
 
-void InverseTableau::Print() const {
+void InverseTableau::print() const {
     for (std::size_t j{0}; j < num_qubits_; ++j) {
         std::cout << (j == 0 ? "\n    | " : "") << "x" << (j == num_qubits_ - 1 ? " | " : " ");
     }
@@ -228,27 +228,27 @@ void InverseTableau::Print() const {
     for (std::size_t i{0}; i < num_qubits_; ++i) {
         for (std::size_t j{0}; j < num_qubits_; ++j) {
             std::cout << (j == 0 ? "\nX" + std::to_string(i) + ": | " : "")
-                      << hadamard_.gens[i].GetX(j) << (j == num_qubits_ - 1 ? " | " : " ");
+                      << hadamard_.gens[i].getX(j) << (j == num_qubits_ - 1 ? " | " : " ");
         }
 
         for (std::size_t j{0}; j < num_qubits_; ++j) {
-            std::cout << hadamard_.gens[i].GetZ(j) << (j == num_qubits_ - 1 ? " | " : " ");
+            std::cout << hadamard_.gens[i].getZ(j) << (j == num_qubits_ - 1 ? " | " : " ");
         }
 
-        std::cout << hadamard_.signs.Get(i) << " |";
+        std::cout << hadamard_.signs.get(i) << " |";
     }
 
     for (std::size_t i{0}; i < num_qubits_; ++i) {
         for (std::size_t j{0}; j < num_qubits_; ++j) {
             std::cout << (j == 0 ? "\nZ" + std::to_string(i) + ": | " : "")
-                      << computational_.gens[i].GetX(j) << (j == num_qubits_ - 1 ? " | " : " ");
+                      << computational_.gens[i].getX(j) << (j == num_qubits_ - 1 ? " | " : " ");
         }
 
         for (std::size_t j{0}; j < num_qubits_; ++j) {
-            std::cout << computational_.gens[i].GetZ(j) << (j == num_qubits_ - 1 ? " | " : " ");
+            std::cout << computational_.gens[i].getZ(j) << (j == num_qubits_ - 1 ? " | " : " ");
         }
 
-        std::cout << computational_.signs.Get(i) << " |";
+        std::cout << computational_.signs.get(i) << " |";
     }
 
     std::cout << '\n';

@@ -14,19 +14,19 @@ namespace {
 
 constexpr std::size_t kQubitsPerWord{64};
 
-constexpr std::size_t GetXIdx(const QubitIdx idx) noexcept {
+constexpr std::size_t getXIdx(const QubitIdx idx) noexcept {
     return (idx / kQubitsPerWord) * (2 * kQubitsPerWord) + idx % kQubitsPerWord;
 }
 
-constexpr std::size_t GetZIdx(const QubitIdx idx) noexcept { return GetXIdx(idx) + kQubitsPerWord; }
+constexpr std::size_t getZIdx(const QubitIdx idx) noexcept { return getXIdx(idx) + kQubitsPerWord; }
 
-constexpr std::size_t BitsRequired(const std::size_t num_qubits) noexcept {
+constexpr std::size_t bitsRequired(const std::size_t num_qubits) noexcept {
     return (num_qubits / kQubitsPerWord + (num_qubits % kQubitsPerWord != 0 ? 1 : 0)) * 2 *
            kQubitsPerWord;
 }
 
 // Use hardware POPCNT instruction if available
-__attribute__((target_clones("popcnt", "default"))) std::int64_t XorWordsWithPhase(
+__attribute__((target_clones("popcnt", "default"))) std::int64_t xorWordsWithPhase(
     const std::span<std::uint64_t> words,
     const std::span<const std::uint64_t> other_words) noexcept {
     std::int64_t exponent{0};
@@ -49,23 +49,23 @@ __attribute__((target_clones("popcnt", "default"))) std::int64_t XorWordsWithPha
 }  // namespace
 
 PauliString::PauliString() noexcept = default;
-PauliString::PauliString(const std::size_t num_qubits) : xz_{BitsRequired(num_qubits)} {}
+PauliString::PauliString(const std::size_t num_qubits) : xz_{bitsRequired(num_qubits)} {}
 
 PauliString::PauliString(const PauliString& other, const std::size_t num_qubits)
-    : xz_{other.xz_, BitsRequired(num_qubits)} {}
+    : xz_{other.xz_, bitsRequired(num_qubits)} {}
 
-void PauliString::AddI(const std::size_t old_num_qubits) {
+void PauliString::addI(const std::size_t old_num_qubits) {
     if (old_num_qubits % kQubitsPerWord == 0) {
-        xz_.Resize(BitsRequired(old_num_qubits), BitsRequired(old_num_qubits + 1));
+        xz_.resize(bitsRequired(old_num_qubits), bitsRequired(old_num_qubits + 1));
     }
 }
 
-std::size_t PauliString::AllocatedBytes(const std::size_t num_qubits) noexcept {
-    return DynamicBitset::AllocatedBytes(BitsRequired(num_qubits));
+std::size_t PauliString::allocatedBytes(const std::size_t num_qubits) noexcept {
+    return DynamicBitset::allocatedBytes(bitsRequired(num_qubits));
 }
 
-bool PauliString::AnyX(const std::size_t num_qubits) const noexcept {
-    const auto words{xz_.Words(BitsRequired(num_qubits))};
+bool PauliString::anyX(const std::size_t num_qubits) const noexcept {
+    const auto words{xz_.words(bitsRequired(num_qubits))};
     for (std::size_t i{0}; i < words.size(); i += 2) {
         if (words[i] != 0) return true;
     }
@@ -73,24 +73,28 @@ bool PauliString::AnyX(const std::size_t num_qubits) const noexcept {
     return false;
 }
 
-bool PauliString::GetX(const QubitIdx idx) const noexcept { return xz_.Get(GetXIdx(idx)); }
+bool PauliString::getX(const QubitIdx idx) const noexcept { return xz_.get(getXIdx(idx)); }
 
-bool PauliString::GetZ(const QubitIdx idx) const noexcept { return xz_.Get(GetZIdx(idx)); }
+bool PauliString::getZ(const QubitIdx idx) const noexcept { return xz_.get(getZIdx(idx)); }
 
-void PauliString::SetX(const QubitIdx idx, const bool val) noexcept { xz_.Set(GetXIdx(idx), val); }
+void PauliString::setX(const QubitIdx idx, const bool val) noexcept { xz_.set(getXIdx(idx), val); }
 
-void PauliString::SetZ(const QubitIdx idx, const bool val) noexcept { xz_.Set(GetZIdx(idx), val); }
+void PauliString::setZ(const QubitIdx idx, const bool val) noexcept { xz_.set(getZIdx(idx), val); }
 
-void PauliString::SwapXZ(const QubitIdx idx) noexcept {
-    const bool x{GetX(idx)};
-    SetX(idx, GetZ(idx));
-    SetZ(idx, x);
+void PauliString::swapXZ(const QubitIdx idx) noexcept {
+    const bool x{getX(idx)};
+    setX(idx, getZ(idx));
+    setZ(idx, x);
 }
 
-std::int64_t PauliString::XorWithPhase(const PauliString& other,
+void PauliString::copyFrom(const PauliString& other, const std::size_t num_qubits) noexcept {
+    xz_.copyFrom(other.xz_, bitsRequired(num_qubits));
+}
+
+std::int64_t PauliString::xorWithPhase(const PauliString& other,
                                        const std::size_t num_qubits) noexcept {
-    return XorWordsWithPhase(xz_.Words(BitsRequired(num_qubits)),
-                             other.xz_.Words(BitsRequired(num_qubits)));
+    return xorWordsWithPhase(xz_.words(bitsRequired(num_qubits)),
+                             other.xz_.words(bitsRequired(num_qubits)));
 }
 
 }  // namespace stabaal::detail

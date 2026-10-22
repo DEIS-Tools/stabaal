@@ -20,8 +20,8 @@ struct BasisTable {
 
     ~BasisTable() noexcept = default;
 
-    void Add(std::size_t old_num_qubits);
-    static std::size_t AllocatedBytes(std::size_t num_qubits) noexcept;
+    void add(std::size_t old_num_qubits);
+    static std::size_t allocatedBytes(std::size_t num_qubits) noexcept;
 
     DynamicBitset signs;
     DynamicArray<PauliString> gens;

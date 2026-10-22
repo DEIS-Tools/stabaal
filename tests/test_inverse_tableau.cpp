@@ -21,23 +21,23 @@
 
 namespace stabaal::detail {
 
-// Builds unsigned operators from a Pauli string, e.g. Pauli("XIZY") = X⊗I⊗Z⊗Y.
+// Builds unsigned operators from a Pauli string, e.g. pauli("XIZY") = X⊗I⊗Z⊗Y.
 // Character i is the Pauli acting on qubit i.
-static PauliString Pauli(const std::string& s) {
+static PauliString pauli(const std::string& s) {
     PauliString g{s.size()};
     for (std::size_t i{0}; i < s.size(); ++i) {
         switch (s[i]) {
             case 'I':
                 break;
             case 'X':
-                g.SetX(i);
+                g.setX(i);
                 break;
             case 'Z':
-                g.SetZ(i);
+                g.setZ(i);
                 break;
             case 'Y':
-                g.SetX(i);
-                g.SetZ(i);
+                g.setX(i);
+                g.setZ(i);
                 break;
             default:
                 throw std::invalid_argument{"bad pauli char"};
@@ -47,11 +47,11 @@ static PauliString Pauli(const std::string& s) {
 }
 
 // Renders a generator as a signed Pauli string, e.g. "-XIZY".
-static std::string Str(const PauliString& g, const std::size_t n, const bool sign = false) {
+static std::string str(const PauliString& g, const std::size_t n, const bool sign = false) {
     std::string s{sign ? "-" : "+"};
     for (std::size_t i{0}; i < n; ++i) {
-        const bool x{g.GetX(i)};
-        const bool z{g.GetZ(i)};
+        const bool x{g.getX(i)};
+        const bool z{g.getZ(i)};
         s += x ? (z ? 'Y' : 'X') : (z ? 'Z' : 'I');
     }
     return s;
@@ -67,7 +67,7 @@ struct CoutCapture {
 
 // 2x2 Pauli matrices used as an independent reference for e().
 using Mat = std::array<std::complex<double>, 4>;
-static Mat PauliMatrix(const char p) {
+static Mat pauliMatrix(const char p) {
     using Complex = std::complex<double>;
     switch (p) {
         case 'X':
@@ -80,7 +80,7 @@ static Mat PauliMatrix(const char p) {
             return {Complex{1}, Complex{0}, Complex{0}, Complex{1}};
     }
 }
-static Mat Multiply(const Mat& a, const Mat& b) {
+static Mat multiply(const Mat& a, const Mat& b) {
     return {a[0] * b[0] + a[1] * b[2], a[0] * b[1] + a[1] * b[3], a[2] * b[0] + a[3] * b[2],
             a[2] * b[1] + a[3] * b[3]};
 }
@@ -90,9 +90,9 @@ struct StateVector {
 
     explicit StateVector(const QubitIdx n) : amplitudes(std::size_t{1} << n) { amplitudes[0] = 1; }
 
-    void Add() { amplitudes.resize(amplitudes.size() * 2); }
+    void add() { amplitudes.resize(amplitudes.size() * 2); }
 
-    void Apply(const std::uint8_t gate, const QubitIdx q, const QubitIdx target) {
+    void apply(const std::uint8_t gate, const QubitIdx q, const QubitIdx target) {
         const auto mask{std::size_t{1} << q};
         for (std::size_t i{0}; i < amplitudes.size(); ++i) {
             if ((i & mask) != 0) continue;
@@ -123,7 +123,7 @@ struct StateVector {
         }
     }
 
-    void MeasureZ(const QubitIdx q, const bool result) {
+    void measureZ(const QubitIdx q, const bool result) {
         const auto mask{std::size_t{1} << q};
         double probability{0};
         for (std::size_t i{0}; i < amplitudes.size(); ++i) {
@@ -147,8 +147,8 @@ TEST_CASE("InverseTableau gates and measurements agree with state-vector simulat
         StateVector reference{n};
         for (std::uint32_t step{0}; step < 48; ++step) {
             if (step == 24) {
-                tableau.Add();
-                reference.Add();
+                tableau.add();
+                reference.add();
                 ++n;
             }
             const auto gate{static_cast<std::uint8_t>(choices() % (n == 1 ? 4 : 5))};
@@ -158,33 +158,33 @@ TEST_CASE("InverseTableau gates and measurements agree with state-vector simulat
             CAPTURE(trial, step, gate, q, target);
             switch (gate) {
                 case 0:
-                    tableau.ApplyH(q);
+                    tableau.applyH(q);
                     break;
                 case 1:
-                    tableau.ApplyX(q);
+                    tableau.applyX(q);
                     break;
                 case 2:
-                    tableau.ApplyS(q);
+                    tableau.applyS(q);
                     break;
                 case 3:
-                    tableau.ApplyZ(q);
+                    tableau.applyZ(q);
                     break;
                 case 4:
-                    tableau.ApplyCx(q, target);
+                    tableau.applyCx(q, target);
                     break;
             }
-            reference.Apply(gate, q, target);
+            reference.apply(gate, q, target);
             if (step % 8 == 7) {
                 const bool x_basis{(choices() & 1U) != 0};
-                if (x_basis) reference.Apply(0, q, 0);
-                const bool result{x_basis ? tableau.MeasureX(q) : tableau.MeasureZ(q)};
-                reference.MeasureZ(q, result);
-                CHECK((x_basis ? tableau.MeasureX(q) : tableau.MeasureZ(q)) == result);
-                if (x_basis) reference.Apply(0, q, 0);
+                if (x_basis) reference.apply(0, q, 0);
+                const bool result{x_basis ? tableau.measureX(q) : tableau.measureZ(q)};
+                reference.measureZ(q, result);
+                CHECK((x_basis ? tableau.measureX(q) : tableau.measureZ(q)) == result);
+                if (x_basis) reference.apply(0, q, 0);
             }
         }
         for (QubitIdx q{0}; q < n; ++q) {
-            reference.MeasureZ(q, tableau.MeasureZ(q));
+            reference.measureZ(q, tableau.measureZ(q));
         }
     }
 }
@@ -192,11 +192,11 @@ TEST_CASE("InverseTableau gates and measurements agree with state-vector simulat
 TEST_CASE("New qubits start in zero", "[inverse_tableau][add]") {
     const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{4})};
     InverseTableau t{n};
-    for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(t.MeasureZ(q));
-    t.Add();
-    CHECK_FALSE(t.MeasureZ(n));
-    t.ApplyX(n);
-    CHECK(t.MeasureZ(n));
+    for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(t.measureZ(q));
+    t.add();
+    CHECK_FALSE(t.measureZ(n));
+    t.applyX(n);
+    CHECK(t.measureZ(n));
 }
 
 TEST_CASE("X and Z measurements sample both outcomes and remain repeatable",
@@ -205,10 +205,10 @@ TEST_CASE("X and Z measurements sample both outcomes and remain repeatable",
     std::set<bool> seen{};
     for (std::uint32_t trial{0}; trial < 64; ++trial) {
         InverseTableau t{1};
-        if (!x_basis) t.ApplyH(0);
-        const bool result{x_basis ? t.MeasureX(0) : t.MeasureZ(0)};
+        if (!x_basis) t.applyH(0);
+        const bool result{x_basis ? t.measureX(0) : t.measureZ(0)};
         seen.insert(result);
-        CHECK((x_basis ? t.MeasureX(0) : t.MeasureZ(0)) == result);
+        CHECK((x_basis ? t.measureX(0) : t.measureZ(0)) == result);
     }
     CHECK(seen.size() == 2);
 }
@@ -219,13 +219,13 @@ TEST_CASE("Bell state measurements remain correlated", "[inverse_tableau][entang
     std::set<bool> seen{};
     for (std::uint32_t trial{0}; trial < 64; ++trial) {
         InverseTableau t{2};
-        t.ApplyH(0);
-        t.ApplyCx(0, 1);
+        t.applyH(0);
+        t.applyCx(0, 1);
         const QubitIdx first{reverse_order ? 1U : 0U};
         const QubitIdx second{1 - first};
-        const bool result{x_basis ? t.MeasureX(first) : t.MeasureZ(first)};
+        const bool result{x_basis ? t.measureX(first) : t.measureZ(first)};
         seen.insert(result);
-        CHECK((x_basis ? t.MeasureX(second) : t.MeasureZ(second)) == result);
+        CHECK((x_basis ? t.measureX(second) : t.measureZ(second)) == result);
     }
     CHECK(seen.size() == 2);
 }
@@ -234,7 +234,7 @@ TEST_CASE("Print", "[inverse_tableau][Print]") {
     SECTION("fresh 1-qubit tableau") {
         const InverseTableau t{1};
         CoutCapture cap{};
-        t.Print();
+        t.print();
         CHECK(cap.ss.str() ==
               "\n    | x | z | r |"
               "\nX0: | 1 | 0 | 0 |"
@@ -244,7 +244,7 @@ TEST_CASE("Print", "[inverse_tableau][Print]") {
     SECTION("fresh 2-qubit tableau") {
         const InverseTableau t{2};
         CoutCapture cap{};
-        t.Print();
+        t.print();
         CHECK(cap.ss.str() ==
               "\n    | x x | z z | r |"
               "\nX0: | 1 0 | 0 0 | 0 |"
@@ -255,9 +255,9 @@ TEST_CASE("Print", "[inverse_tableau][Print]") {
     }
     SECTION("sign column after X") {
         InverseTableau t{1};
-        t.ApplyX(0);
+        t.applyX(0);
         CoutCapture cap{};
-        t.Print();
+        t.print();
         CHECK(cap.ss.str() ==
               "\n    | x | z | r |"
               "\nX0: | 1 | 0 | 0 |"
@@ -266,9 +266,9 @@ TEST_CASE("Print", "[inverse_tableau][Print]") {
     }
     SECTION("rows swapped after H") {
         InverseTableau t{1};
-        t.ApplyH(0);
+        t.applyH(0);
         CoutCapture cap{};
-        t.Print();
+        t.print();
         CHECK(cap.ss.str() ==
               "\n    | x | z | r |"
               "\nX0: | 0 | 1 | 0 |"
@@ -282,169 +282,169 @@ TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[inverse
         GENERATE(QubitIdx{1}, QubitIdx{63}, QubitIdx{64}, QubitIdx{65}, QubitIdx{129})};
     const auto q{n - 1};
     InverseTableau t{n};
-    t.ApplyX(q);
-    t.ApplyH(q);
-    CHECK(t.MeasureX(q));
-    t.Add();
-    CHECK(t.MeasureX(q));
-    CHECK_FALSE(t.MeasureZ(n));
+    t.applyX(q);
+    t.applyH(q);
+    CHECK(t.measureX(q));
+    t.add();
+    CHECK(t.measureX(q));
+    CHECK_FALSE(t.measureZ(n));
 }
 
 TEST_CASE("BasisTable appends identity rows and positive signs", "[basis][add]") {
     BasisTable table{2};
-    CHECK_FALSE(table.signs.Any(2));
-    table.gens[0].SetX(0);
-    table.signs.Set(0, true);
-    table.Add(2);
-    CHECK(table.signs.Get(0));
-    CHECK_FALSE(table.signs.Get(1));
-    CHECK_FALSE(table.signs.Get(2));
-    CHECK(Str(table.gens[0], 3, table.signs.Get(0)) == "-XII");
-    CHECK(Str(table.gens[1], 3, table.signs.Get(1)) == "+III");
-    CHECK(Str(table.gens[2], 3, table.signs.Get(2)) == "+III");
+    CHECK_FALSE(table.signs.any(2));
+    table.gens[0].setX(0);
+    table.signs.set(0, true);
+    table.add(2);
+    CHECK(table.signs.get(0));
+    CHECK_FALSE(table.signs.get(1));
+    CHECK_FALSE(table.signs.get(2));
+    CHECK(str(table.gens[0], 3, table.signs.get(0)) == "-XII");
+    CHECK(str(table.gens[1], 3, table.signs.get(1)) == "+III");
+    CHECK(str(table.gens[2], 3, table.signs.get(2)) == "+III");
 }
 
 TEST_CASE("BasisTable growth reuses capacity and preserves rows", "[basis][growth]") {
     BasisTable table{0};
     CHECK_FALSE(table.gens);
-    CHECK(BasisTable::AllocatedBytes(0) == 0);
+    CHECK(BasisTable::allocatedBytes(0) == 0);
     for (std::size_t n{0}; n < 130; ++n) {
-        const auto* previous{table.gens.Data()};
-        table.Add(n);
-        if (n != 0 && (n & (n - 1)) != 0) CHECK(table.gens.Data() == previous);
+        const auto* previous{table.gens.data()};
+        table.add(n);
+        if (n != 0 && (n & (n - 1)) != 0) CHECK(table.gens.data() == previous);
         for (std::size_t row{0}; row <= n; ++row) {
-            CHECK(table.signs.Get(row) == (row < n));
+            CHECK(table.signs.get(row) == (row < n));
             for (std::size_t col{0}; col <= n; ++col) {
-                CHECK(table.gens[row].GetX(col) == (row < n && row == col));
-                CHECK_FALSE(table.gens[row].GetZ(col));
+                CHECK(table.gens[row].getX(col) == (row < n && row == col));
+                CHECK_FALSE(table.gens[row].getZ(col));
             }
         }
-        table.gens[n].SetX(n);
-        table.signs.Set(n);
+        table.gens[n].setX(n);
+        table.signs.set(n);
     }
 }
 
 TEST_CASE("InverseTableau copies remain independent after growth", "[inverse_tableau][copy]") {
     const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65})};
     InverseTableau original{n};
-    original.Add();
-    original.ApplyX(n);
+    original.add();
+    original.applyX(n);
     InverseTableau copy{original};
     InverseTableau assigned{0};
     assigned = original;
-    original.ApplyX(n);
-    CHECK_FALSE(original.MeasureZ(n));
-    CHECK(copy.MeasureZ(n));
-    CHECK(assigned.MeasureZ(n));
-    copy.Add();
-    assigned.Add();
-    CHECK_FALSE(copy.MeasureZ(n + 1));
-    CHECK_FALSE(assigned.MeasureZ(n + 1));
-    CHECK(copy.MeasureZ(n));
-    CHECK(assigned.MeasureZ(n));
+    original.applyX(n);
+    CHECK_FALSE(original.measureZ(n));
+    CHECK(copy.measureZ(n));
+    CHECK(assigned.measureZ(n));
+    copy.add();
+    assigned.add();
+    CHECK_FALSE(copy.measureZ(n + 1));
+    CHECK_FALSE(assigned.measureZ(n + 1));
+    CHECK(copy.measureZ(n));
+    CHECK(assigned.measureZ(n));
 }
 
 TEST_CASE("BasisTable copies preserve independent signs and rows", "[basis][copy]") {
     const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65})};
     BasisTable original{n};
-    original.Add(n);
-    original.signs.Set(n);
-    original.gens[n].SetX(n);
+    original.add(n);
+    original.signs.set(n);
+    original.gens[n].setX(n);
 
     BasisTable copy{original, n + 1};
     BasisTable assigned{0};
     assigned = BasisTable{original, n + 1};
-    original.signs.Set(n, false);
-    original.gens[n].SetX(n, false);
-    CHECK(copy.signs.Get(n));
-    CHECK(copy.gens[n].GetX(n));
-    CHECK(assigned.signs.Get(n));
-    CHECK(assigned.gens[n].GetX(n));
+    original.signs.set(n, false);
+    original.gens[n].setX(n, false);
+    CHECK(copy.signs.get(n));
+    CHECK(copy.gens[n].getX(n));
+    CHECK(assigned.signs.get(n));
+    CHECK(assigned.gens[n].getX(n));
 
     BasisTable moved{std::move(copy)};
-    CHECK(moved.signs.Get(n));
-    copy.Add(0);
-    CHECK_FALSE(copy.signs.Get(0));
+    CHECK(moved.signs.get(n));
+    copy.add(0);
+    CHECK_FALSE(copy.signs.get(0));
     assigned = std::move(moved);
-    CHECK(assigned.gens[n].GetX(n));
-    moved.Add(0);
-    CHECK_FALSE(moved.signs.Get(0));
+    CHECK(assigned.gens[n].getX(n));
+    moved.add(0);
+    CHECK_FALSE(moved.signs.get(0));
 }
 
 TEST_CASE("PauliString copies and moves preserve storage ownership", "[pauli][copy]") {
     const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65}, QubitIdx{129})};
-    auto original{Pauli(std::string(n, 'Z'))};
+    auto original{pauli(std::string(n, 'Z'))};
     PauliString copy{original, n};
     PauliString assigned;
     assigned = PauliString{original, n};
-    original.AddI(n);
-    CHECK(Str(copy, n) == "+" + std::string(n, 'Z'));
-    CHECK(Str(assigned, n) == Str(copy, n));
+    original.addI(n);
+    CHECK(str(copy, n) == "+" + std::string(n, 'Z'));
+    CHECK(str(assigned, n) == str(copy, n));
 
     PauliString moved{std::move(copy)};
-    CHECK(Str(moved, n) == Str(assigned, n));
-    copy.AddI(0);
-    CHECK(Str(copy, 1) == "+I");
+    CHECK(str(moved, n) == str(assigned, n));
+    copy.addI(0);
+    CHECK(str(copy, 1) == "+I");
     assigned = std::move(moved);
-    CHECK(Str(assigned, n) == "+" + std::string(n, 'Z'));
-    moved.AddI(0);
-    CHECK(Str(moved, 1) == "+I");
+    CHECK(str(assigned, n) == "+" + std::string(n, 'Z'));
+    moved.addI(0);
+    CHECK(str(moved, 1) == "+I");
     if (n != 0) {
-        assigned.SetX(n - 1);
-        CHECK_FALSE(original.GetX(n - 1));
+        assigned.setX(n - 1);
+        CHECK_FALSE(original.getX(n - 1));
     }
 }
 
 TEST_CASE("PauliString grows across word boundaries", "[pauli][growth]") {
     const auto n{GENERATE(0, 1, 31, 32, 33, 63, 64, 65, 127, 128, 129)};
-    auto g{Pauli(std::string(n, 'Z'))};
-    CHECK_FALSE(g.AnyX(n));
-    g.AddI(n);
-    CHECK(Str(g, n + 1) == "+" + std::string(n, 'Z') + "I");
-    g.SetX(n);
-    CHECK(g.AnyX(n + 1));
-    g.SwapXZ(n);
-    CHECK_FALSE(g.AnyX(n + 1));
-    CHECK(g.GetZ(n));
-    g.SetZ(n, false);
-    CHECK(Str(g, n + 1) == "+" + std::string(n, 'Z') + "I");
-    g.SetX(n);
-    g.SetX(n, false);
-    CHECK_FALSE(g.AnyX(n + 1));
+    auto g{pauli(std::string(n, 'Z'))};
+    CHECK_FALSE(g.anyX(n));
+    g.addI(n);
+    CHECK(str(g, n + 1) == "+" + std::string(n, 'Z') + "I");
+    g.setX(n);
+    CHECK(g.anyX(n + 1));
+    g.swapXZ(n);
+    CHECK_FALSE(g.anyX(n + 1));
+    CHECK(g.getZ(n));
+    g.setZ(n, false);
+    CHECK(str(g, n + 1) == "+" + std::string(n, 'Z') + "I");
+    g.setX(n);
+    g.setX(n, false);
+    CHECK_FALSE(g.anyX(n + 1));
 }
 
 TEST_CASE("PauliString swaps X/Z components", "[pauli][swap]") {
     const auto idx{GENERATE(0, 1, 2, 3)};
-    auto g{Pauli("IXZY")};
+    auto g{pauli("IXZY")};
     auto expected{std::string{"+IXZY"}};
     expected[idx + 1] = std::string{"IZXY"}[idx];
-    g.SwapXZ(idx);
-    CHECK(Str(g, 4) == expected);
-    g.SwapXZ(idx);
-    CHECK(Str(g, 4) == "+IXZY");
+    g.swapXZ(idx);
+    CHECK(str(g, 4) == expected);
+    g.swapXZ(idx);
+    CHECK(str(g, 4) == "+IXZY");
 }
 
 TEST_CASE("PauliString multiplication across block boundaries", "[pauli][xor]") {
     const auto n{GENERATE(0, 1, 63, 64, 65, 129)};
-    auto a{Pauli(std::string(n, 'X'))};
-    const auto b{Pauli(std::string(n, 'Y'))};
-    CHECK(a.XorWithPhase(b, n) == n);
-    CHECK(Str(a, n) == "+" + std::string(n, 'Z'));
-    CHECK(Str(b, n) == "+" + std::string(n, 'Y'));
-    CHECK(a.XorWithPhase(b, n) == 3 * n);
-    CHECK(Str(a, n) == "+" + std::string(n, 'X'));
-    CHECK(a.XorWithPhase(a, n) == 0);
-    CHECK(Str(a, n) == "+" + std::string(n, 'I'));
+    auto a{pauli(std::string(n, 'X'))};
+    const auto b{pauli(std::string(n, 'Y'))};
+    CHECK(a.xorWithPhase(b, n) == n);
+    CHECK(str(a, n) == "+" + std::string(n, 'Z'));
+    CHECK(str(b, n) == "+" + std::string(n, 'Y'));
+    CHECK(a.xorWithPhase(b, n) == 3 * n);
+    CHECK(str(a, n) == "+" + std::string(n, 'X'));
+    CHECK(a.xorWithPhase(a, n) == 0);
+    CHECK(str(a, n) == "+" + std::string(n, 'I'));
 }
 
 TEST_CASE("Fused XOR preserves phase, result, and source", "[pauli][phase][xor]") {
-    constexpr std::array<std::array<std::int64_t, 4>, 4> kPhases{{
+    constexpr std::array<std::array<std::int64_t, 4>, 4> k_phases{{
         {0, 0, 0, 0},
         {0, 0, 1, -1},
         {0, 3, 4, 1},
         {0, 1, 3, 0},
     }};
-    constexpr std::array<const char*, 4> kProducts{"IXYZ", "XIZY", "YZIX", "ZYXI"};
+    constexpr std::array<const char*, 4> k_products{"IXYZ", "XIZY", "YZIX", "ZYXI"};
     const auto n{GENERATE(0, 1, 63, 64, 65, 129)};
     std::mt19937 rng{42};
     for (std::uint32_t trial{0}; trial < 32; ++trial) {
@@ -458,18 +458,18 @@ TEST_CASE("Fused XOR preserves phase, result, and source", "[pauli][phase][xor]"
             const auto b{rng() % 4};
             lhs[i] = "IXYZ"[a];
             rhs[i] = "IXYZ"[b];
-            expected[i] = kProducts[a][b];
-            exponent += kPhases[a][b];
+            expected[i] = k_products[a][b];
+            exponent += k_phases[a][b];
             if (expected[i] == 'Y') self_exponent += 4;
         }
-        auto a{Pauli(lhs)};
-        const auto b{Pauli(rhs)};
-        CHECK(a.XorWithPhase(b, n) == exponent);
-        CHECK(Str(a, n) == "+" + expected);
-        CHECK(Str(b, n) == "+" + rhs);
+        auto a{pauli(lhs)};
+        const auto b{pauli(rhs)};
+        CHECK(a.xorWithPhase(b, n) == exponent);
+        CHECK(str(a, n) == "+" + expected);
+        CHECK(str(b, n) == "+" + rhs);
 
-        CHECK(a.XorWithPhase(a, n) == self_exponent);
-        CHECK(Str(a, n) == "+" + std::string(n, 'I'));
+        CHECK(a.xorWithPhase(a, n) == self_exponent);
+        CHECK(str(a, n) == "+" + std::string(n, 'I'));
     }
 }
 
@@ -498,7 +498,7 @@ TEST_CASE("e: single-qubit table", "[pauli][phase]") {
         {"Z", "Z", 0},
     }))};
     CAPTURE(c.a, c.b);
-    CHECK(Pauli(c.a).XorWithPhase(Pauli(c.b), 1) == c.e);
+    CHECK(pauli(c.a).xorWithPhase(pauli(c.b), 1) == c.e);
 }
 
 TEST_CASE("e: matches Pauli matrix multiplication", "[pauli][phase]") {
@@ -506,16 +506,16 @@ TEST_CASE("e: matches Pauli matrix multiplication", "[pauli][phase]") {
     for (const char a : std::string{"IXYZ"}) {
         for (const char b : std::string{"IXYZ"}) {
             CAPTURE(a, b);
-            const PauliString ga{Pauli(std::string(1, a))};
-            const PauliString gb{Pauli(std::string(1, b))};
+            const PauliString ga{pauli(std::string(1, a))};
+            const PauliString gb{pauli(std::string(1, b))};
             PauliString prod{ga, 1};
-            const auto exponent{prod.XorWithPhase(gb, 1)};
-            const char p{Str(prod, 1)[1]};
+            const auto exponent{prod.xorWithPhase(gb, 1)};
+            const char p{str(prod, 1)[1]};
 
             const std::int64_t e{((exponent % 4) + 4) % 4};
             const std::complex<double> factor{std::pow(imaginary_unit, e)};
-            const Mat lhs{Multiply(PauliMatrix(a), PauliMatrix(b))};
-            const Mat rhs{PauliMatrix(p)};
+            const Mat lhs{multiply(pauliMatrix(a), pauliMatrix(b))};
+            const Mat rhs{pauliMatrix(p)};
             for (std::size_t k{0}; k < 4; ++k) {
                 CHECK(std::abs(lhs[k] - factor * rhs[k]) < 1e-12);
             }
@@ -536,10 +536,10 @@ TEST_CASE("e: is additive over tensor products", "[pauli][phase]") {
     const auto& [a, b]{pair};
     std::int64_t sum{0};
     for (std::size_t i{0}; i < a.size(); ++i) {
-        sum += Pauli(std::string(1, a[i])).XorWithPhase(Pauli(std::string(1, b[i])), 1);
+        sum += pauli(std::string(1, a[i])).xorWithPhase(pauli(std::string(1, b[i])), 1);
     }
     CAPTURE(a, b);
-    CHECK(Pauli(a).XorWithPhase(Pauli(b), a.size()) == sum);
+    CHECK(pauli(a).xorWithPhase(pauli(b), a.size()) == sum);
 }
 
 TEST_CASE("InverseTableau rejects invalid gate and measurement indices",
@@ -547,16 +547,16 @@ TEST_CASE("InverseTableau rejects invalid gate and measurement indices",
     const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{65})};
     InverseTableau tableau{n};
     for (const auto q : {n, n + 1, std::numeric_limits<QubitIdx>::max()}) {
-        CHECK_THROWS_AS(tableau.ApplyH(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyX(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyS(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyZ(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyCx(q, 0), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyCx(0, q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.MeasureX(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.MeasureZ(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.applyH(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.applyX(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.applyS(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.applyZ(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.applyCx(q, 0), std::out_of_range);
+        CHECK_THROWS_AS(tableau.applyCx(0, q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.measureX(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.measureZ(q), std::out_of_range);
     }
-    for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
+    for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(tableau.measureZ(q));
 }
 
 }  // namespace stabaal::detail

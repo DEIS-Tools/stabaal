@@ -15,19 +15,19 @@ PYBIND11_MODULE(stabaal, m) {
                                           "Stabilizer simulator using an inverse tableau backend.")
                        .def(py::init<stabaal::QubitIdx>(), py::arg("num_qubits"),
                             "Create a simulator with all qubits initialized to |0>.")
-                       .def("add", &InverseSim::Add, "Append a qubit initialized to |0>.")
-                       .def("h", &InverseSim::H, py::arg("q"), "Apply a Hadamard gate to qubit q.")
-                       .def("s", &InverseSim::S, py::arg("q"), "Apply an S gate to qubit q.")
-                       .def("x", &InverseSim::X, py::arg("q"), "Apply a X gate to qubit q.")
-                       .def("z", &InverseSim::Z, py::arg("q"), "Apply a Z gate to qubit q.")
-                       .def("cx", &InverseSim::Cx, py::arg("control"), py::arg("target"),
+                       .def("add", &InverseSim::add, "Append a qubit initialized to |0>.")
+                       .def("h", &InverseSim::h, py::arg("q"), "Apply a Hadamard gate to qubit q.")
+                       .def("s", &InverseSim::s, py::arg("q"), "Apply an S gate to qubit q.")
+                       .def("x", &InverseSim::x, py::arg("q"), "Apply a X gate to qubit q.")
+                       .def("z", &InverseSim::z, py::arg("q"), "Apply a Z gate to qubit q.")
+                       .def("cx", &InverseSim::cx, py::arg("control"), py::arg("target"),
                             "Apply a CX gate from control to target.")
-                       .def("measure_x", &InverseSim::MeasureX, py::arg("q"),
+                       .def("measure_x", &InverseSim::measureX, py::arg("q"),
                             "Measure qubit q in Hadamard basis.")
-                       .def("measure_z", &InverseSim::MeasureZ, py::arg("q"),
+                       .def("measure_z", &InverseSim::measureZ, py::arg("q"),
                             "Measure qubit q in computational basis.")
-                       .def("print", &InverseSim::Print, "Print the backend's tableau to stdout.")
-                       .def("memory_usage", &InverseSim::MemoryUsage,
+                       .def("print", &InverseSim::print, "Print the backend's tableau to stdout.")
+                       .def("memory_usage", &InverseSim::memoryUsage,
                             "Return the simulator's memory usage in bytes.");
 
     m.def(

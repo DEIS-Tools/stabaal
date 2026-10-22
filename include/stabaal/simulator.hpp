@@ -13,16 +13,16 @@ template <typename T>
 concept SimulationBackend =
     std::constructible_from<T, QubitIdx> &&
     requires(T& backend, const T& const_backend, QubitIdx q, QubitIdx target) {
-        { backend.Add() } -> std::same_as<void>;
-        { backend.MeasureX(q) } -> std::same_as<bool>;
-        { backend.MeasureZ(q) } -> std::same_as<bool>;
-        { backend.ApplyH(q) } -> std::same_as<void>;
-        { backend.ApplyS(q) } -> std::same_as<void>;
-        { backend.ApplyX(q) } -> std::same_as<void>;
-        { backend.ApplyZ(q) } -> std::same_as<void>;
-        { backend.ApplyCx(q, target) } -> std::same_as<void>;
-        { const_backend.Print() } -> std::same_as<void>;
-        { const_backend.MemoryUsage() } noexcept -> std::same_as<std::size_t>;
+        { backend.add() } -> std::same_as<void>;
+        { backend.measureX(q) } -> std::same_as<bool>;
+        { backend.measureZ(q) } -> std::same_as<bool>;
+        { backend.applyH(q) } -> std::same_as<void>;
+        { backend.applyS(q) } -> std::same_as<void>;
+        { backend.applyX(q) } -> std::same_as<void>;
+        { backend.applyZ(q) } -> std::same_as<void>;
+        { backend.applyCx(q, target) } -> std::same_as<void>;
+        { const_backend.print() } -> std::same_as<void>;
+        { const_backend.memoryUsage() } noexcept -> std::same_as<std::size_t>;
     };
 
 template <SimulationBackend Backend = detail::InverseTableau>
@@ -30,25 +30,25 @@ class Simulator {
    public:
     explicit Simulator(QubitIdx num_qubits) : backend_(num_qubits) {}
 
-    void Add() { backend_.Add(); }
+    void add() { backend_.add(); }
 
-    bool MeasureX(QubitIdx q) { return backend_.MeasureX(q); }
+    bool measureX(QubitIdx q) { return backend_.measureX(q); }
 
-    bool MeasureZ(QubitIdx q) { return backend_.MeasureZ(q); }
+    bool measureZ(QubitIdx q) { return backend_.measureZ(q); }
 
-    void H(QubitIdx q) { backend_.ApplyH(q); }
+    void h(QubitIdx q) { backend_.applyH(q); }
 
-    void S(QubitIdx q) { backend_.ApplyS(q); }
+    void s(QubitIdx q) { backend_.applyS(q); }
 
-    void X(QubitIdx q) { backend_.ApplyX(q); }
+    void x(QubitIdx q) { backend_.applyX(q); }
 
-    void Z(QubitIdx q) { backend_.ApplyZ(q); }
+    void z(QubitIdx q) { backend_.applyZ(q); }
 
-    void Cx(QubitIdx ctrl, QubitIdx trgt) { backend_.ApplyCx(ctrl, trgt); }
+    void cx(QubitIdx ctrl, QubitIdx trgt) { backend_.applyCx(ctrl, trgt); }
 
-    void Print() const { backend_.Print(); }
+    void print() const { backend_.print(); }
 
-    std::size_t MemoryUsage() const noexcept { return backend_.MemoryUsage(); }
+    std::size_t memoryUsage() const noexcept { return backend_.memoryUsage(); }
 
    private:
     Backend backend_;

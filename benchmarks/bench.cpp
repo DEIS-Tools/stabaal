@@ -18,12 +18,12 @@
 
 namespace {
 
-using BenchSimulator = stabaal::Simulator<>;
+using BenchTableau = stabaal::detail::InverseTableau;
 
 template <typename T>
-T Parse(const std::string_view text) {
+T parse(const std::string_view text) {
     T value{};
-    const auto* const last{std::to_address(text.end())};
+    const auto *const last{std::to_address(text.end())};
     const auto [end, error]{std::from_chars(std::to_address(text.begin()), last, value)};
     if (error != std::errc{} || end != last || value == 0) {
         throw std::invalid_argument{"Arguments must be positive integers"};
@@ -40,25 +40,56 @@ struct Gate {
     stabaal::QubitIdx target;
 };
 
+// Runs the circuit with the hand-written gates, or with the ones generated from gate matrices.
+template <bool Generated>
+void run(BenchTableau &tableau, const std::vector<Gate> &circuit) {
+    for (const auto &gate : circuit) {
+        switch (gate.kind) {
+            case GateKind::kH:
+                Generated ? tableau.h(gate.q) : tableau.applyH(gate.q);
+                break;
+            case GateKind::kX:
+                Generated ? tableau.x(gate.q) : tableau.applyX(gate.q);
+                break;
+            case GateKind::kS:
+                Generated ? tableau.s(gate.q) : tableau.applyS(gate.q);
+                break;
+            case GateKind::kZ:
+                Generated ? tableau.z(gate.q) : tableau.applyZ(gate.q);
+                break;
+            case GateKind::kCx:
+                Generated ? tableau.cx(gate.q, gate.target) : tableau.applyCx(gate.q, gate.target);
+                break;
+        }
+    }
+}
+
+double median(std::vector<double> &times) {
+    std::sort(times.begin(), times.end());
+    return (times[(times.size() - 1) / 2] + times[times.size() / 2]) / 2;
+}
+
 }  // namespace
 
-int main(int argc, char** argv) {
-    const std::span<char* const> args{argv, static_cast<std::size_t>(argc)};
+int main(int argc, char **argv) {
+    const std::span<char *const> args{argv, static_cast<std::size_t>(argc)};
     if (argc > 4 || (argc > 1 && std::string_view{args[1]} == "--help")) {
         std::cout << "Usage: stabaal_bench [qubits=256] [gates=1000000] [repeats=5]\n";
         return argc > 4 ? 1 : 0;
     }
 
     try {
-        const auto qubits{argc > 1 ? Parse<stabaal::QubitIdx>(args[1]) : stabaal::QubitIdx{256}};
-        const auto gates{argc > 2 ? Parse<std::size_t>(args[2]) : std::size_t{1000000}};
-        const auto repeats{argc > 3 ? Parse<std::uint32_t>(args[3]) : std::uint32_t{5}};
+        const auto qubits{argc > 1 ? parse<stabaal::QubitIdx>(args[1]) : stabaal::QubitIdx{256}};
+        const auto gates{argc > 2 ? parse<std::size_t>(args[2]) : std::size_t{1000000}};
+        const auto repeats{argc > 3 ? parse<std::uint32_t>(args[3]) : std::uint32_t{5}};
         std::uniform_int_distribution<stabaal::QubitIdx> qubit{0, qubits - 1};
         std::vector<Gate> circuit{};
         circuit.reserve(gates);
 
         std::vector<double> times{};
+        std::vector<double> generated_times{};
         times.reserve(repeats);
+        generated_times.reserve(repeats);
         std::uint32_t checksum{0};
         std::size_t memory_bytes{0};
         for (std::uint32_t repeat{0}; repeat < repeats; ++repeat) {
@@ -72,44 +103,37 @@ int main(int argc, char** argv) {
                     {static_cast<GateKind>(rng() % (qubits == 1 ? 4 : 5)), q, target});
             }
 
-            BenchSimulator simulator{qubits};
-            const auto start{std::chrono::steady_clock::now()};
-            for (const auto& gate : circuit) {
-                switch (gate.kind) {
-                    case GateKind::kH:
-                        simulator.H(gate.q);
-                        break;
-                    case GateKind::kX:
-                        simulator.X(gate.q);
-                        break;
-                    case GateKind::kS:
-                        simulator.S(gate.q);
-                        break;
-                    case GateKind::kZ:
-                        simulator.Z(gate.q);
-                        break;
-                    case GateKind::kCx:
-                        simulator.Cx(gate.q, gate.target);
-                        break;
-                }
-            }
-
-            const auto stop{std::chrono::steady_clock::now()};
+            BenchTableau tableau{qubits};
+            auto start{std::chrono::steady_clock::now()};
+            run<false>(tableau, circuit);
+            auto stop{std::chrono::steady_clock::now()};
             times.push_back(std::chrono::duration<double>{stop - start}.count());
-            if (repeat == 0) memory_bytes = simulator.MemoryUsage();
-            if (simulator.MeasureZ(repeat % qubits)) ++checksum;
+            if (repeat == 0) memory_bytes = tableau.memoryUsage();
+            if (tableau.measureZ(repeat % qubits)) ++checksum;
+
+            BenchTableau generated{qubits};
+            start = std::chrono::steady_clock::now();
+            run<true>(generated, circuit);
+            stop = std::chrono::steady_clock::now();
+            generated_times.push_back(std::chrono::duration<double>{stop - start}.count());
+            if (generated.measureZ(repeat % qubits)) ++checksum;
         }
 
-        std::sort(times.begin(), times.end());
-        const auto median{(times[(times.size() - 1) / 2] + times[times.size() / 2]) / 2};
+        const auto report{[gates](const char *name, std::vector<double> &samples) {
+            const auto seconds{median(samples)};
+            std::cout << name << ": median=" << seconds << " s, "
+                      << seconds * 1e9 / static_cast<double>(gates) << " ns/gate, "
+                      << static_cast<double>(gates) / seconds / 1e6 << " million gates/s\n";
+        }};
+
         std::cout << "qubits=" << qubits << " gates=" << gates << " repeats=" << repeats
                   << std::fixed << std::setprecision(3) << "\nsimulator_memory=" << memory_bytes
                   << " bytes (" << static_cast<double>(memory_bytes) / 1024.0
-                  << " KiB; excluding allocator overhead)\nmedian=" << median << " s, "
-                  << median * 1e9 / static_cast<double>(gates) << " ns/gate, "
-                  << static_cast<double>(gates) / median / 1e6 << " million gates/s\n"
-                  << "checksum=" << checksum << '\n';
-    } catch (const std::exception& error) {
+                  << " KiB; excluding allocator overhead)\n";
+        report("hand-written", times);
+        report("generated   ", generated_times);
+        std::cout << "checksum=" << checksum << '\n';
+    } catch (const std::exception &error) {
         std::cerr << error.what() << '\n';
         return 1;
     }

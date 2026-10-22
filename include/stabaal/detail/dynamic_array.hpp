@@ -26,8 +26,8 @@ class DynamicArray {
     T& operator[](const std::size_t index) noexcept { return data_[index]; }
     const T& operator[](const std::size_t index) const noexcept { return data_[index]; }
 
-    T* Data() noexcept { return data_.get(); }
-    const T* Data() const noexcept { return data_.get(); }
+    T* data() noexcept { return data_.get(); }
+    const T* data() const noexcept { return data_.get(); }
 
     explicit operator bool() const noexcept { return static_cast<bool>(data_); }
 

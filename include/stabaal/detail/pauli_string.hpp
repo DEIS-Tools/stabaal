@@ -21,19 +21,21 @@ class PauliString {
 
     ~PauliString() noexcept = default;
 
-    void AddI(std::size_t old_num_qubits);
+    void addI(std::size_t old_num_qubits);
 
-    static std::size_t AllocatedBytes(std::size_t num_qubits) noexcept;
-    bool AnyX(std::size_t num_qubits) const noexcept;
+    static std::size_t allocatedBytes(std::size_t num_qubits) noexcept;
+    bool anyX(std::size_t num_qubits) const noexcept;
 
-    bool GetX(QubitIdx idx) const noexcept;
-    bool GetZ(QubitIdx idx) const noexcept;
+    bool getX(QubitIdx idx) const noexcept;
+    bool getZ(QubitIdx idx) const noexcept;
 
-    void SetX(QubitIdx idx, bool val = true) noexcept;
-    void SetZ(QubitIdx idx, bool val = true) noexcept;
-    void SwapXZ(QubitIdx idx) noexcept;
+    void setX(QubitIdx idx, bool val = true) noexcept;
+    void setZ(QubitIdx idx, bool val = true) noexcept;
+    void swapXZ(QubitIdx idx) noexcept;
 
-    std::int64_t XorWithPhase(const PauliString& other, std::size_t num_qubits) noexcept;
+    void copyFrom(const PauliString& other, std::size_t num_qubits) noexcept;
+
+    std::int64_t xorWithPhase(const PauliString& other, std::size_t num_qubits) noexcept;
 
    private:
     DynamicBitset xz_;
