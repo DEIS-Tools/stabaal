@@ -1,6 +1,6 @@
 SOURCES := $(shell find src -path src/bindings -prune -o -type f -name '*.cpp' -print)
 FORMAT_FILES := $(shell find src include tests benchmarks -type f \( -name '*.cpp' -o -name '*.hpp' \))
-BENCH_ARGS ?= 2048 100000 25
+BENCH_ARGS ?= 2048 500000 50
 
 .PHONY: release debug python flamegraph lint format
 

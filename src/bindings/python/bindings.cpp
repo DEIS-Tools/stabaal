@@ -14,7 +14,7 @@ PYBIND11_MODULE(stabaal, m) {
 
     auto inverse = py::class_<InverseSim>(m, "InverseTableau",
                                           "Stabilizer simulator using an inverse tableau backend.")
-                       .def(py::init<stabaal::QubitIdx>(), py::arg("num_qubits"),
+                       .def(py::init<stabaal::QubitSize>(), py::arg("num_qubits"),
                             "Create a simulator with all qubits initialized to |0>.")
                        .def("add", &InverseSim::Add, "Append a qubit initialized to |0>.")
                        .def("h", &InverseSim::H, py::arg("q"), "Apply a Hadamard gate to qubit q.")
@@ -33,7 +33,9 @@ PYBIND11_MODULE(stabaal, m) {
 
     m.def(
         "Simulator",
-        [](stabaal::QubitIdx num_qubits, const py::object& backend) { return backend(num_qubits); },
+        [](stabaal::QubitSize num_qubits, const py::object& backend) {
+            return backend(num_qubits);
+        },
         py::arg("num_qubits"), py::arg("backend") = inverse,
         "Create a simulator using the selected backend constructor. Defaults to InverseTableau.");
 }
