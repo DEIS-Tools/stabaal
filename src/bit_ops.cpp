@@ -37,7 +37,7 @@ void SetBit(const BitWordSpan words, const std::size_t idx, const bool value) no
         word |= mask;
         return;
     }
-    
+
     word &= ~mask;
 }
 

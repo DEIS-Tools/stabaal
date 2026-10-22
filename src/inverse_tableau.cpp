@@ -111,6 +111,7 @@ void InverseTableau::CopyRows(const InverseTableau& other) noexcept {
         std::copy_n(other.words_.get(), NumWords(capacity_), words_.get());
         return;
     }
+
     for (std::size_t basis{0}; basis < kBasisCount; ++basis) {
         for (QubitIdx q{0}; q < other.num_qubits_; ++q) {
             for (std::size_t axis{0}; axis < kPauliComponents; ++axis) {
@@ -122,6 +123,7 @@ void InverseTableau::CopyRows(const InverseTableau& other) noexcept {
             }
         }
     }
+
     for (std::size_t i{0}; i < kFlagArrays; ++i) {
         std::copy_n(other.Flags(i).data(), used_words, Flags(i).data());
     }
