@@ -12,7 +12,7 @@
 #include <utility>
 #include <vector>
 
-#include "stabaal/detail/bit_word.hpp"
+#include "stabaal/detail/bit_ops.hpp"
 #include "stabaal/detail/pauli_string_view.hpp"
 #include "stabaal/types.hpp"
 
@@ -46,26 +46,26 @@ static_assert(std::numeric_limits<std::size_t>::digits >=
 
 }  // namespace
 
-std::size_t InverseTableau::StorageWords(const QubitIdx capacity) noexcept {
-    return (kPauliComponents * kBasisCount * capacity + kFlagArrays) * WordCount(capacity);
+std::size_t InverseTableau::NumWords(const QubitIdx capacity) noexcept {
+    return (std::size_t{4} * capacity + kFlagArrays) * WordCount(capacity);
 }
 
 BitWordSpan InverseTableau::RowWords(const std::size_t row) noexcept {
     const auto stride{WordCount(capacity_)};
-    return BitWordSpan{words_.get(), StorageWords(capacity_)}.subspan(row * stride, stride);
+    return BitWordSpan{words_.get(), NumWords(capacity_)}.subspan(row * stride, stride);
 }
 
 ConstBitWordSpan InverseTableau::RowWords(const std::size_t row) const noexcept {
     const auto stride{WordCount(capacity_)};
-    return ConstBitWordSpan{words_.get(), StorageWords(capacity_)}.subspan(row * stride, stride);
+    return ConstBitWordSpan{words_.get(), NumWords(capacity_)}.subspan(row * stride, stride);
 }
 
 BitWordSpan InverseTableau::Flags(const std::size_t index) noexcept {
-    return RowWords(kPauliComponents * kBasisCount * capacity_ + index);
+    return RowWords(std::size_t{4} * capacity_ + index);
 }
 
 ConstBitWordSpan InverseTableau::Flags(const std::size_t index) const noexcept {
-    return RowWords(kPauliComponents * kBasisCount * capacity_ + index);
+    return RowWords(std::size_t{4} * capacity_ + index);
 }
 
 std::size_t InverseTableau::PhysicalBasis(const QubitIdx q, const Basis basis) const noexcept {
@@ -94,7 +94,7 @@ void InverseTableau::FlipSign(const QubitIdx q, const Basis basis) noexcept {
 InverseTableau::InverseTableau(const QubitIdx num_qubits)
     : words_{
           // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-          num_qubits == 0 ? nullptr : std::make_unique<BitWord[]>(StorageWords(num_qubits)),
+          num_qubits == 0 ? nullptr : std::make_unique<BitWord[]>(NumWords(num_qubits)),
       },
       num_qubits_{num_qubits},
       capacity_{num_qubits} {
@@ -108,7 +108,7 @@ void InverseTableau::CopyRows(const InverseTableau& other) noexcept {
     const auto used_words{WordCount(other.num_qubits_)};
     if (used_words == 0) return;
     if (capacity_ == other.capacity_) {
-        std::copy_n(other.words_.get(), StorageWords(capacity_), words_.get());
+        std::copy_n(other.words_.get(), NumWords(capacity_), words_.get());
         return;
     }
     for (std::size_t basis{0}; basis < kBasisCount; ++basis) {
@@ -132,7 +132,7 @@ InverseTableau::InverseTableau(const InverseTableau& other)
           other.num_qubits_ == 0
               ? nullptr
               // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-              : std::make_unique_for_overwrite<BitWord[]>(StorageWords(other.num_qubits_)),
+              : std::make_unique_for_overwrite<BitWord[]>(NumWords(other.num_qubits_)),
       },
       num_qubits_{other.num_qubits_},
       capacity_{other.num_qubits_} {
@@ -161,7 +161,7 @@ void InverseTableau::Add() {
         InverseTableau grown{0};
         grown.capacity_ = capacity_ + extra;
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        grown.words_ = std::make_unique<BitWord[]>(StorageWords(grown.capacity_));
+        grown.words_ = std::make_unique<BitWord[]>(NumWords(grown.capacity_));
         grown.CopyRows(*this);
         grown.num_qubits_ = num_qubits_;
         *this = std::move(grown);
@@ -298,7 +298,7 @@ void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) noexcept {
 }
 
 std::size_t InverseTableau::MemoryUsage() const noexcept {
-    return sizeof(*this) + StorageWords(capacity_) * sizeof(BitWord);
+    return sizeof(*this) + NumWords(capacity_) * sizeof(BitWord);
 }
 
 void InverseTableau::Print() const {

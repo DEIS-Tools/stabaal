@@ -4,7 +4,7 @@
 #include <bit>
 #include <cstddef>
 
-#include "stabaal/detail/bit_word.hpp"
+#include "stabaal/detail/bit_ops.hpp"
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {

@@ -7,7 +7,7 @@
 #include <random>
 #include <vector>
 
-#include "stabaal/detail/bit_word.hpp"
+#include "stabaal/detail/bit_ops.hpp"
 #include "stabaal/detail/pauli_string_view.hpp"
 #include "stabaal/types.hpp"
 

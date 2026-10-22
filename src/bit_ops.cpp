@@ -1,4 +1,4 @@
-#include "stabaal/detail/bit_word.hpp"
+#include "stabaal/detail/bit_ops.hpp"
 
 #include <cstddef>
 
@@ -33,7 +33,12 @@ bool GetBit(const ConstBitWordSpan words, const std::size_t idx) noexcept {
 void SetBit(const BitWordSpan words, const std::size_t idx, const bool value) noexcept {
     const auto mask{GetMask(idx)};
     auto& word{GetWord(words, idx)};
-    word = (word & ~mask) | (value ? mask : 0);
+    if (value) {
+        word |= mask;
+        return;
+    }
+    
+    word &= ~mask;
 }
 
 void FlipBit(const BitWordSpan words, const std::size_t idx, const bool flip) noexcept {

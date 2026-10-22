@@ -47,7 +47,7 @@ class InverseTableau {
     QubitIdx num_qubits_;
     QubitIdx capacity_;
 
-    [[nodiscard]] static std::size_t StorageWords(QubitIdx capacity) noexcept;
+    [[nodiscard]] static std::size_t NumWords(QubitIdx capacity) noexcept;
     [[nodiscard]] BitWordSpan RowWords(std::size_t row) noexcept;
     [[nodiscard]] ConstBitWordSpan RowWords(std::size_t row) const noexcept;
     [[nodiscard]] BitWordSpan Flags(std::size_t index) noexcept;
