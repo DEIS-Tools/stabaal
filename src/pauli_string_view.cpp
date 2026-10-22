@@ -11,6 +11,15 @@ namespace stabaal::detail {
 
 namespace {
 
+/**
+ * Multiply packed Pauli strings, storing the product's components in xs and zs.
+ * Uses POPCNT when supported, with a default CPU fallback.
+ * @param xs Writable X components of the left-hand string.
+ * @param zs Writable Z components of the left-hand string.
+ * @param other_xs X components of the right-hand string.
+ * @param other_zs Z components of the right-hand string.
+ * @return Exponent p in [0, 3] for the product's phase factor i^p, excluding stored signs.
+ */
 __attribute__((target_clones("popcnt", "default"))) PhaseExponent
 XorWordsWithPhase(const BitWordSpan xs, const BitWordSpan zs, const ConstBitWordSpan other_xs,
                   const ConstBitWordSpan other_zs) noexcept {
@@ -36,6 +45,15 @@ XorWordsWithPhase(const BitWordSpan xs, const BitWordSpan zs, const ConstBitWord
     return (exponent + PhaseExponent{2} * (std::popcount(negative_phases) % 2)) % 4;
 }
 
+/**
+ * Fill measurement targets and determine whether the pivot needs S dagger.
+ * Uses POPCNT when supported, with a default CPU fallback.
+ * @param xs X components of the measured generator.
+ * @param zs Z components of the measured generator.
+ * @param pivot Bit position with an X component, excluded from the targets.
+ * @param targets Output words containing the X-component bits with the pivot bit cleared.
+ * @return Whether cleanup needs S dagger on the pivot.
+ */
 __attribute__((target_clones("popcnt", "default"))) bool MeasurementTargetWords(
     const ConstBitWordSpan xs, const ConstBitWordSpan zs, const QubitSize pivot,
     const BitWordSpan targets) noexcept {
@@ -54,6 +72,16 @@ struct CleanupCounts {
     bool overlap_parity;
 };
 
+/**
+ * Count target Z components and toggle target X components if the pivot has an X component.
+ * Uses POPCNT when supported, with a default CPU fallback.
+ * @param xs Writable X components of the generator being updated.
+ * @param zs Z components of the generator being updated.
+ * @param targets Packed bits marking cleanup target positions.
+ * @param x X component at the pivot.
+ * @return Target Z-component count and, if x is true, the parity of target X/Z overlaps
+ * before the update. The overlap parity is false when x is false.
+ */
 __attribute__((target_clones("popcnt", "default"))) CleanupCounts
 CleanUpWords(const BitWordSpan xs, const ConstBitWordSpan zs, const ConstBitWordSpan targets,
              const bool x) noexcept {
