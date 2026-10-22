@@ -1,5 +1,5 @@
-#ifndef STABAAL_GATE_EFFECT_HPP
-#define STABAAL_GATE_EFFECT_HPP
+#ifndef STABAAL_DETAIL_GATE_EFFECT_HPP
+#define STABAAL_DETAIL_GATE_EFFECT_HPP
 
 #include <algorithm>
 #include <array>
@@ -12,7 +12,7 @@
 
 #include "unitary_matrix.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 enum class Pauli : std::uint8_t {
     kI,
@@ -200,6 +200,6 @@ constexpr std::array<bool, 2 * N> findRowsToCopy(const GateEffect<N> &effect) {
     return copy;
 }
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif

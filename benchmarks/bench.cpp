@@ -14,10 +14,11 @@
 #include <system_error>
 #include <vector>
 
-#include "inverse_tableau.hpp"
-#include "types.hpp"
+#include "stabaal/simulator.hpp"
 
 namespace {
+
+using BenchTableau = stabaal::detail::InverseTableau;
 
 template <typename T>
 T parse(const std::string_view text) {
@@ -41,7 +42,7 @@ struct Gate {
 
 // Runs the circuit with the hand-written gates, or with the ones generated from gate matrices.
 template <bool Generated>
-void run(stabaal::InverseTableau &tableau, const std::vector<Gate> &circuit) {
+void run(BenchTableau &tableau, const std::vector<Gate> &circuit) {
     for (const auto &gate : circuit) {
         switch (gate.kind) {
             case GateKind::kH:
@@ -102,7 +103,7 @@ int main(int argc, char **argv) {
                     {static_cast<GateKind>(rng() % (qubits == 1 ? 4 : 5)), q, target});
             }
 
-            stabaal::InverseTableau tableau{qubits};
+            BenchTableau tableau{qubits};
             auto start{std::chrono::steady_clock::now()};
             run<false>(tableau, circuit);
             auto stop{std::chrono::steady_clock::now()};
@@ -110,7 +111,7 @@ int main(int argc, char **argv) {
             if (repeat == 0) memory_bytes = tableau.memoryUsage();
             if (tableau.measureZ(repeat % qubits)) ++checksum;
 
-            stabaal::InverseTableau generated{qubits};
+            BenchTableau generated{qubits};
             start = std::chrono::steady_clock::now();
             run<true>(generated, circuit);
             stop = std::chrono::steady_clock::now();
@@ -126,7 +127,7 @@ int main(int argc, char **argv) {
         }};
 
         std::cout << "qubits=" << qubits << " gates=" << gates << " repeats=" << repeats
-                  << std::fixed << std::setprecision(3) << "\ntableau_memory=" << memory_bytes
+                  << std::fixed << std::setprecision(3) << "\nsimulator_memory=" << memory_bytes
                   << " bytes (" << static_cast<double>(memory_bytes) / 1024.0
                   << " KiB; excluding allocator overhead)\n";
         report("hand-written", times);

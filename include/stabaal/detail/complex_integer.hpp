@@ -1,9 +1,9 @@
-#ifndef STABAAL_COMPLEX_INTEGER_HPP
-#define STABAAL_COMPLEX_INTEGER_HPP
+#ifndef STABAAL_DETAIL_COMPLEX_INTEGER_HPP
+#define STABAAL_DETAIL_COMPLEX_INTEGER_HPP
 
 #include <functional>
 
-namespace stabaal {
+namespace stabaal::detail {
 
 // Gaussian integer z + i * i, enough to represent Clifford gates up to normalisation.
 struct CInt {
@@ -30,6 +30,6 @@ struct CInt {
     constexpr CInt conjugate() const { return {z, -i}; }
 };
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif

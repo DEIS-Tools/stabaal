@@ -1,5 +1,5 @@
-#ifndef STABAAL_UNITARY_MATRIX_HPP
-#define STABAAL_UNITARY_MATRIX_HPP
+#ifndef STABAAL_DETAIL_UNITARY_MATRIX_HPP
+#define STABAAL_DETAIL_UNITARY_MATRIX_HPP
 
 #include <array>
 #include <cstddef>
@@ -8,7 +8,7 @@
 
 #include "complex_integer.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 template <std::size_t O>
 struct UMat {
@@ -104,6 +104,6 @@ constexpr UMat<std::size_t{1} << N> kronecker(const std::span<const UMat<2>, N> 
     }
 }
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif

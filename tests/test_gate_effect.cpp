@@ -9,11 +9,11 @@
 #include <stdexcept>
 #include <string>
 
-#include "gate_effect.hpp"
-#include "inverse_tableau.hpp"
-#include "types.hpp"
+#include "stabaal/detail/gate_effect.hpp"
+#include "stabaal/detail/inverse_tableau.hpp"
+#include "stabaal/detail/types.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 // Renders a GenEffect as a signed Pauli string, e.g. "-XIZY".
 template <std::size_t N>
@@ -270,4 +270,4 @@ TEST_CASE("Generated methods match the hand-written gates on random circuits",
     CHECK(rows(a) == rows(b));
 }
 
-}  // namespace stabaal
+}  // namespace stabaal::detail

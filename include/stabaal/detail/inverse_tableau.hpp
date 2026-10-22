@@ -1,5 +1,5 @@
-#ifndef STABAAL_INVERSE_TABLEAU_HPP
-#define STABAAL_INVERSE_TABLEAU_HPP
+#ifndef STABAAL_DETAIL_INVERSE_TABLEAU_HPP
+#define STABAAL_DETAIL_INVERSE_TABLEAU_HPP
 
 #include <array>
 #include <bit>
@@ -7,10 +7,6 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
-#include <iomanip>
-#include <iostream>
-#include <random>
-#include <sstream>
 #include <stdexcept>
 #include <vector>
 
@@ -20,7 +16,7 @@
 #include "types.hpp"
 #include "unitary_matrix.hpp"
 
-namespace stabaal {
+namespace stabaal::detail {
 
 class InverseTableau {
    public:
@@ -32,16 +28,22 @@ class InverseTableau {
 
     explicit InverseTableau(QubitIdx num_qubits);
 
+    InverseTableau(const InverseTableau& other);
+    InverseTableau& operator=(const InverseTableau& other);
+    InverseTableau(InverseTableau&& other) noexcept = default;
+    InverseTableau& operator=(InverseTableau&& other) noexcept = default;
+    ~InverseTableau() noexcept = default;
+
     void add();
 
-    bool measureZ(QubitIdx q);
     bool measureX(QubitIdx q);
+    bool measureZ(QubitIdx q);
 
     void applyH(QubitIdx q);
-    void applyCx(QubitIdx c, QubitIdx t);
-    void applyX(QubitIdx q);
     void applyS(QubitIdx q);
+    void applyX(QubitIdx q);
     void applyZ(QubitIdx q);
+    void applyCx(QubitIdx c, QubitIdx t);
 
     template <UMat M, std::convertible_to<QubitIdx>... Qubits>
     void apply(const Qubits... qubits) {
@@ -58,31 +60,29 @@ class InverseTableau {
         }
 
         static constexpr auto k_copy{findRowsToCopy(k_effect)};
-        if (scratch_.size() < 2 * k_len) scratch_.resize(2 * k_len);
-
-        // Make a reference to the old gens 
+        std::array<PauliString, 2 * k_len> scratch{};
         GateRows<k_len> old{};
         for (std::size_t i{0}; i < k_len; ++i) {
-            old.gens[2*i]  = &hadamard_.gens[qs[i]];
-            old.signs[2*i] = hadamard_.signs.get(qs[i]);
-            old.gens[2*i+1]  = &computational_.gens[qs[i]];
-            old.signs[2*i+1] = computational_.signs.get(qs[i]);
+            old.gens[2 * i] = &hadamard_.gens[qs[i]];
+            old.signs[2 * i] = hadamard_.signs.get(qs[i]);
+            old.gens[2 * i + 1] = &computational_.gens[qs[i]];
+            old.signs[2 * i + 1] = computational_.signs.get(qs[i]);
         }
-        
+
         // copy only the rows which are overwritten before all its uses are done
         for (std::size_t r{0}; r < 2 * k_len; ++r) {
             if (!k_copy[r]) continue;
-            scratch_[r] = *old.gens[r];
-            old.gens[r] = &scratch_[r];
+            scratch[r] = PauliString{*old.gens[r], num_qubits_};
+            old.gens[r] = &scratch[r];
         }
 
         // Written in the same order as the rows are numbered, which findRowsToCopy relies on.
         for (std::size_t i{0}; i < k_len; ++i) {
-            hadamard_.signs.set(qs[i],
-                                combineRows(k_effect.hadamard[i], old, hadamard_.gens[qs[i]]));
+            hadamard_.signs.set(
+                qs[i], combineRows(k_effect.hadamard[i], old, hadamard_.gens[qs[i]], num_qubits_));
 
-            computational_.signs.set(
-                qs[i], combineRows(k_effect.computational[i], old, computational_.gens[qs[i]]));
+            computational_.signs.set(qs[i], combineRows(k_effect.computational[i], old,
+                                                        computational_.gens[qs[i]], num_qubits_));
         }
     }
 
@@ -99,49 +99,43 @@ class InverseTableau {
    private:
     template <std::size_t N>
     struct GateRows {
-        std::array<const PauliString *, 2 * N> gens;
+        std::array<const PauliString*, 2 * N> gens;
         std::array<bool, 2 * N> signs;
     };
-
-    static std::mt19937 &randomEngine();
 
     BasisTable computational_;
     BasisTable hadamard_;
     QubitIdx num_qubits_;
-    // Copies of old rows for apply, kept between gates to reuse their allocations.
-    std::vector<PauliString> scratch_;
 
-    void cleanUp(QubitIdx pivot, const PauliString &gen) noexcept;
+    void cleanUp(QubitIdx pivot, const PauliString& gen) noexcept;
     void collapse(QubitIdx pivot, bool p) noexcept;
     bool randomMeasurement(QubitIdx q, Basis b);
 
     // Writes the product of old rows selected by effect into out and returns its sign.
     template <std::size_t N>
-    static bool combineRows(const GenEffect<N> &effect, const GateRows<N> &old, PauliString &out);
-
-    static bool phase(std::int64_t exponent, bool a_sign, bool b_sign,
-                      std::uint8_t phase_rule) noexcept;
+    static bool combineRows(const GenEffect<N>& effect, const GateRows<N>& old, PauliString& out,
+                            std::size_t num_qubits) noexcept;
 };
 
 template <std::size_t N>
-bool InverseTableau::combineRows(const GenEffect<N> &effect, const GateRows<N> &old,
-                                 PauliString &out) {
+bool InverseTableau::combineRows(const GenEffect<N>& effect, const GateRows<N>& old,
+                                 PauliString& out, const std::size_t num_qubits) noexcept {
     std::int64_t exponent{effect.r ? 2 : 0};
     bool first{true};
 
     const auto multiply{[&](const std::size_t r) {
         if (first) {
-            out = *old.gens[r];
+            out.copyFrom(*old.gens[r], num_qubits);
             first = false;
         } else {
-            exponent += out.xorWithPhase(*old.gens[r]);
+            exponent += out.xorWithPhase(*old.gens[r], num_qubits);
         }
         exponent += old.signs[r] ? 2 : 0;
     }};
 
     for (std::size_t i{0}; i < N; ++i) {
-        if (effect.x[i]) multiply(2*i);
-        if (effect.z[i]) multiply(2*i + 1);
+        if (effect.x[i]) multiply(2 * i);
+        if (effect.z[i]) multiply(2 * i + 1);
         if (effect.x[i] && effect.z[i]) ++exponent;
     }
     assert(!first);
@@ -151,6 +145,6 @@ bool InverseTableau::combineRows(const GenEffect<N> &effect, const GateRows<N> &
     return phase == 2;
 }
 
-}  // namespace stabaal
+}  // namespace stabaal::detail
 
 #endif
