@@ -10,13 +10,11 @@
 #include <limits>
 #include <memory>
 #include <random>
-#include <span>
-#include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include "stabaal/detail/bit_word.hpp"
-#include "stabaal/detail/pauli_string.hpp"
+#include "stabaal/detail/pauli_string_view.hpp"
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {
@@ -28,7 +26,7 @@ constexpr std::size_t kPauliComponents{2};
 constexpr std::size_t kSwapFlags{kBasisCount};
 constexpr std::size_t kFlagArrays{kBasisCount + 1};
 constexpr std::size_t kStackTargetWords{16};
-constexpr std::uint64_t kGrowthRatePercent{25};
+constexpr BitWord kGrowthRatePercent{25};
 
 [[nodiscard]] std::mt19937& RandomEngine() {
     static thread_local std::mt19937 engine{std::random_device{}()};
@@ -38,7 +36,7 @@ constexpr std::uint64_t kGrowthRatePercent{25};
 [[nodiscard]] bool Phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
                          const std::uint8_t phase_rule) noexcept {
     assert(phase_rule < 4);
-    const auto phase{static_cast<std::uint64_t>(exponent + phase_rule) & 3U};
+    const auto phase{static_cast<BitWord>(exponent + phase_rule) & 3U};
     assert(phase % 2 == 0);
     return (phase == 2) != (a_sign != b_sign);
 }
@@ -49,22 +47,21 @@ std::size_t InverseTableau::StorageWords(const QubitIdx capacity) noexcept {
     return (kPauliComponents * kBasisCount * capacity + kFlagArrays) * WordCount(capacity);
 }
 
-std::span<std::uint64_t> InverseTableau::RowWords(const std::size_t row) noexcept {
+BitWordSpan InverseTableau::RowWords(const std::size_t row) noexcept {
     const auto stride{WordCount(capacity_)};
-    return std::span{words_.get(), StorageWords(capacity_)}.subspan(row * stride, stride);
+    return BitWordSpan{words_.get(), StorageWords(capacity_)}.subspan(row * stride, stride);
 }
 
-std::span<const std::uint64_t> InverseTableau::RowWords(const std::size_t row) const noexcept {
+ConstBitWordSpan InverseTableau::RowWords(const std::size_t row) const noexcept {
     const auto stride{WordCount(capacity_)};
-    return std::span<const std::uint64_t>{words_.get(), StorageWords(capacity_)}.subspan(
-        row * stride, stride);
+    return ConstBitWordSpan{words_.get(), StorageWords(capacity_)}.subspan(row * stride, stride);
 }
 
-std::span<std::uint64_t> InverseTableau::Flags(const std::size_t index) noexcept {
+BitWordSpan InverseTableau::Flags(const std::size_t index) noexcept {
     return RowWords(kPauliComponents * kBasisCount * capacity_ + index);
 }
 
-std::span<const std::uint64_t> InverseTableau::Flags(const std::size_t index) const noexcept {
+ConstBitWordSpan InverseTableau::Flags(const std::size_t index) const noexcept {
     return RowWords(kPauliComponents * kBasisCount * capacity_ + index);
 }
 
@@ -93,7 +90,7 @@ void InverseTableau::SetSign(const QubitIdx q, const Basis basis, const bool val
 InverseTableau::InverseTableau(const QubitIdx num_qubits)
     : words_{
           // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-          num_qubits == 0 ? nullptr : std::make_unique<std::uint64_t[]>(StorageWords(num_qubits)),
+          num_qubits == 0 ? nullptr : std::make_unique<BitWord[]>(StorageWords(num_qubits)),
       },
       num_qubits_{num_qubits},
       capacity_{num_qubits} {
@@ -131,7 +128,7 @@ InverseTableau::InverseTableau(const InverseTableau& other)
           other.num_qubits_ == 0
               ? nullptr
               // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-              : std::make_unique_for_overwrite<std::uint64_t[]>(StorageWords(other.num_qubits_)),
+              : std::make_unique_for_overwrite<BitWord[]>(StorageWords(other.num_qubits_)),
       },
       num_qubits_{other.num_qubits_},
       capacity_{other.num_qubits_} {
@@ -139,24 +136,31 @@ InverseTableau::InverseTableau(const InverseTableau& other)
 }
 
 InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
-    if (this != &other) *this = InverseTableau{other};
+    if (this != &other) {
+        if (words_ && capacity_ == other.num_qubits_) {
+            CopyRows(other);
+            num_qubits_ = other.num_qubits_;
+        } else {
+            *this = InverseTableau{other};
+        }
+    }
+
     return *this;
 }
 
 void InverseTableau::Add() {
-    if (num_qubits_ == std::numeric_limits<QubitIdx>::max()) {
-        throw std::length_error{"Too many qubits"};
-    }
+    assert(num_qubits_ < std::numeric_limits<QubitIdx>::max());
+
     if (num_qubits_ == capacity_) {
-        const auto growth{std::max(capacity_ * kGrowthRatePercent / 100, std::uint64_t{1})};
+        const auto growth{std::max(capacity_ * kGrowthRatePercent / 100, BitWord{1})};
         const auto extra{
             static_cast<QubitIdx>(
-                std::min<std::uint64_t>(growth, std::numeric_limits<QubitIdx>::max() - capacity_)),
+                std::min<BitWord>(growth, std::numeric_limits<QubitIdx>::max() - capacity_)),
         };
         InverseTableau grown{0};
         grown.capacity_ = capacity_ + extra;
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
-        grown.words_ = std::make_unique<std::uint64_t[]>(StorageWords(grown.capacity_));
+        grown.words_ = std::make_unique<BitWord[]>(StorageWords(grown.capacity_));
         grown.CopyRows(*this);
         grown.num_qubits_ = num_qubits_;
         *this = std::move(grown);
@@ -166,7 +170,7 @@ void InverseTableau::Add() {
     Generator(last, Basis::kHadamard).SetX(last);
 }
 
-void InverseTableau::CleanUp(const QubitIdx pivot, const std::span<const std::uint64_t> targets,
+void InverseTableau::CleanUp(const QubitIdx pivot, const ConstBitWordSpan targets,
                              const bool apply_s_dagger) noexcept {
     for (std::size_t basis{0}; basis < kBasisCount; ++basis) {
         const auto signs{Flags(basis)};
@@ -204,28 +208,23 @@ bool InverseTableau::RandomMeasurement(const QubitIdx q, const Basis b) {
     }
 
     const auto num_words{WordCount(num_qubits_)};
-    std::array<std::uint64_t, kStackTargetWords> local_targets{};
-    std::vector<std::uint64_t> heap_targets(num_words > local_targets.size() ? num_words : 0);
-    const std::span<std::uint64_t> targets{
-        heap_targets.empty() ? local_targets.data() : heap_targets.data(), num_words};
+    std::array<BitWord, kStackTargetWords> local_targets{};
+    std::vector<BitWord> heap_targets(num_words > local_targets.size() ? num_words : 0);
+    const BitWordSpan targets{heap_targets.empty() ? local_targets.data() : heap_targets.data(),
+                              num_words};
     const bool apply_s_dagger{gen.MeasurementTargets(pivot, targets)};
     if (apply_s_dagger ||
         std::any_of(targets.begin(), targets.end(), [](const auto word) { return word != 0; })) {
         CleanUp(pivot, targets, apply_s_dagger);
     }
+
     const bool p{std::bernoulli_distribution{0.5}(RandomEngine())};
     Collapse(pivot, p);
     return Sign(q, b);
 }
 
-void InverseTableau::CheckQubit(const QubitIdx q) const {
-    if (q >= num_qubits_) [[unlikely]] {
-        throw std::out_of_range{"Qubit index out of range"};
-    }
-}
-
 bool InverseTableau::Measure(const QubitIdx q, const Basis basis) {
-    CheckQubit(q);
+    assert(q < num_qubits_);
     return Generator(q, basis).AnyX(num_qubits_) ? RandomMeasurement(q, basis) : Sign(q, basis);
 }
 
@@ -233,14 +232,14 @@ bool InverseTableau::MeasureX(const QubitIdx q) { return Measure(q, Basis::kHada
 
 bool InverseTableau::MeasureZ(const QubitIdx q) { return Measure(q, Basis::kComputational); }
 
-void InverseTableau::ApplyH(const QubitIdx q) {
-    CheckQubit(q);
+void InverseTableau::ApplyH(const QubitIdx q) noexcept {
+    assert(q < num_qubits_);
 
     FlipBit(Flags(kSwapFlags), q);
 }
 
-void InverseTableau::ApplyS(const QubitIdx q) {
-    CheckQubit(q);
+void InverseTableau::ApplyS(const QubitIdx q) noexcept {
+    assert(q < num_qubits_);
 
     const auto exponent{
         Generator(q, Basis::kHadamard)
@@ -250,21 +249,21 @@ void InverseTableau::ApplyS(const QubitIdx q) {
             Phase(exponent, Sign(q, Basis::kHadamard), Sign(q, Basis::kComputational), 3));
 }
 
-void InverseTableau::ApplyX(const QubitIdx q) {
-    CheckQubit(q);
+void InverseTableau::ApplyX(const QubitIdx q) noexcept {
+    assert(q < num_qubits_);
 
     FlipSign(q, Basis::kComputational);
 }
 
-void InverseTableau::ApplyZ(const QubitIdx q) {
-    CheckQubit(q);
+void InverseTableau::ApplyZ(const QubitIdx q) noexcept {
+    assert(q < num_qubits_);
 
     FlipSign(q, Basis::kHadamard);
 }
 
-void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
-    CheckQubit(c);
-    CheckQubit(t);
+void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) noexcept {
+    assert(c < num_qubits_);
+    assert(t < num_qubits_);
 
     const auto hadamard_phase{
         Generator(c, Basis::kHadamard).XorWithPhase(Generator(t, Basis::kHadamard), num_qubits_),
@@ -282,7 +281,7 @@ void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) {
 }
 
 std::size_t InverseTableau::MemoryUsage() const noexcept {
-    return sizeof(*this) + StorageWords(capacity_) * sizeof(std::uint64_t);
+    return sizeof(*this) + StorageWords(capacity_) * sizeof(BitWord);
 }
 
 void InverseTableau::Print() const {

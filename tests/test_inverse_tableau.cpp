@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "stabaal/detail/inverse_tableau.hpp"
+#include "stabaal/simulator.hpp"
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {
@@ -307,21 +308,47 @@ TEST_CASE("Entanglement survives repeated storage growth across word boundaries"
     CHECK_FALSE(parity);
 }
 
-TEST_CASE("InverseTableau rejects invalid gate and measurement indices",
-          "[inverse_tableau][bounds]") {
+TEST_CASE("Simulator rejects invalid gate and measurement indices", "[simulator][bounds]") {
     const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{65})};
-    InverseTableau tableau{n};
+    Simulator<> tableau{n};
     for (const auto q : {n, n + 1, std::numeric_limits<QubitIdx>::max()}) {
-        CHECK_THROWS_AS(tableau.ApplyH(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyX(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyS(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyZ(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyCx(q, 0), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ApplyCx(0, q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.H(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.X(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.S(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Z(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Cx(q, 0), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Cx(0, q), std::out_of_range);
         CHECK_THROWS_AS(tableau.MeasureX(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.MeasureZ(q), std::out_of_range);
     }
     for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
+}
+
+TEST_CASE("Simulator validation follows growth and copying", "[simulator][bounds][copy]") {
+    Simulator<> simulator{0};
+    CHECK_THROWS_AS(simulator.X(0), std::out_of_range);
+    simulator.Add();
+    simulator.X(0);
+    CHECK(simulator.MeasureZ(0));
+    CHECK_THROWS_AS(simulator.X(1), std::out_of_range);
+    auto copy{simulator};
+    simulator.Add();
+    CHECK_FALSE(simulator.MeasureZ(1));
+    CHECK_THROWS_AS(copy.MeasureZ(1), std::out_of_range);
+    copy = simulator;
+    CHECK_FALSE(copy.MeasureZ(1));
+}
+
+TEST_CASE("Simulator rejects qubit count overflow before calling the backend",
+          "[simulator][bounds]") {
+    struct FullBackend : InverseTableau {
+        explicit FullBackend(QubitIdx /*num_qubits*/) : InverseTableau{0} {}
+        [[nodiscard]] QubitIdx NumQubits() const noexcept {
+            return std::numeric_limits<QubitIdx>::max();
+        }
+    };
+    Simulator<FullBackend> simulator{0};
+    CHECK_THROWS_AS(simulator.Add(), std::length_error);
 }
 
 TEST_CASE("GHZ measurement parity preserves phases across word boundaries",

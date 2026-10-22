@@ -7,9 +7,10 @@
 #include <vector>
 
 #include "stabaal/detail/bit_word.hpp"
-#include "stabaal/detail/pauli_string.hpp"
+#include "stabaal/detail/pauli_string_view.hpp"
 
-using stabaal::detail::kBitsPerWord;
+using stabaal::BitWord;
+using stabaal::kBitsPerWord;
 using stabaal::detail::PauliStringView;
 using stabaal::detail::WordCount;
 
@@ -21,8 +22,8 @@ struct PauliBuffer {
 
     [[nodiscard]] PauliStringView View() noexcept { return {xs, zs}; }
 
-    std::vector<std::uint64_t> xs;
-    std::vector<std::uint64_t> zs;
+    std::vector<BitWord> xs;
+    std::vector<BitWord> zs;
 };
 
 }  // namespace
@@ -75,7 +76,7 @@ TEST_CASE("Word cleanup matches ordered Cx and S dagger updates", "[pauli][measu
         auto row{row_buffer.View()};
         std::vector<bool> expected_x(n);
         std::vector<bool> expected_z(n);
-        std::vector<std::uint64_t> targets(WordCount(n));
+        std::vector<BitWord> targets(WordCount(n));
         for (std::uint32_t q{0}; q < n; ++q) {
             measured.SetX(q, q == pivot || (q > pivot && (rng() & 1U) != 0));
             measured.SetZ(q, (rng() & 1U) != 0);

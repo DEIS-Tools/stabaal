@@ -41,7 +41,15 @@ void PrintTiming(const std::string_view name, std::vector<double>& samples,
         (samples[(samples.size() - 1) / 2] + samples[samples.size() / 2]) / 2,
     };
     const auto operations{static_cast<double>(operation_count)};
-    std::cout << name << ": median=" << median << " s, " << median * 1e9 / operations << " ns/op, "
+    auto duration{median * 1e9 / operations};
+    constexpr std::array<std::string_view, 4> units{"ns", "µs", "ms", "s"};
+    std::size_t unit{0};
+    while (duration >= 1000 && unit + 1 < units.size()) {
+        duration /= 1000;
+        ++unit;
+    }
+
+    std::cout << name << ": " << duration << ' ' << units[unit] << "/op, "
               << operations / median / 1e6 << " million ops/s\n";
 }
 
@@ -57,17 +65,16 @@ struct Gate {
 
 int main(int argc, char** argv) {
     const std::span<char* const> args{argv, static_cast<std::size_t>(argc)};
-    if (argc > 4 || (argc > 1 && std::string_view{args[1]} == "--help")) {
-        std::cout << "Usage: stabaal_bench [qubits=256] [gates=1000000] [repeats=5]\n";
-        return argc > 4 ? 1 : 0;
+    const bool help{argc == 2 && std::string_view{args[1]} == "--help"};
+    if (argc != 4 || help) {
+        std::cout << "Usage: stabaal_bench <qubits> <gates> <repeats>\n";
+        return help ? 0 : 1;
     }
 
     try {
-        const auto qubits{
-            argc > 1 ? Parse<stabaal::QubitIdx>(args[1]) : stabaal::QubitIdx{256},
-        };
-        const auto gates{argc > 2 ? Parse<std::size_t>(args[2]) : std::size_t{1000000}};
-        const auto repeats{argc > 3 ? Parse<std::uint32_t>(args[3]) : std::uint32_t{5}};
+        const auto qubits{Parse<stabaal::QubitIdx>(args[1])};
+        const auto gates{Parse<std::size_t>(args[2])};
+        const auto repeats{Parse<std::uint32_t>(args[3])};
         std::uniform_int_distribution<stabaal::QubitIdx> qubit{0, qubits - 1};
         std::vector<Gate> circuit{};
         circuit.reserve(gates);
@@ -75,6 +82,9 @@ int main(int argc, char** argv) {
         std::array<std::vector<double>, 3> times{};
         auto& [gate_times, measure_z_times, copy_times]{times};
         for (auto& samples : times) samples.reserve(repeats);
+        constexpr std::array<std::string_view, 5> gate_names{"H", "X", "S", "Z", "Cx"};
+        std::array<std::vector<double>, gate_names.size()> individual_gate_times{};
+        for (auto& samples : individual_gate_times) samples.reserve(repeats);
         std::size_t memory_bytes{0};
         [[maybe_unused]] volatile bool outcome{false};
         for (std::uint32_t repeat{0}; repeat < repeats; ++repeat) {
@@ -126,6 +136,23 @@ int main(int argc, char** argv) {
             measure_z_times.push_back(
                 std::chrono::duration<double>{measurement_stop - measurement_start}.count());
             outcome = simulator.MeasureZ(0);
+
+            const auto time_gate = [&](auto apply, std::vector<double>& samples) {
+                auto individual{simulator};
+                const auto gate_start{std::chrono::steady_clock::now()};
+                for (const auto& gate : circuit) apply(individual, gate);
+                const auto gate_stop{std::chrono::steady_clock::now()};
+                samples.push_back(std::chrono::duration<double>{gate_stop - gate_start}.count());
+                outcome = individual.MeasureZ(0);
+            };
+            time_gate([](auto& sim, const Gate& gate) { sim.H(gate.q); }, individual_gate_times[0]);
+            time_gate([](auto& sim, const Gate& gate) { sim.X(gate.q); }, individual_gate_times[1]);
+            time_gate([](auto& sim, const Gate& gate) { sim.S(gate.q); }, individual_gate_times[2]);
+            time_gate([](auto& sim, const Gate& gate) { sim.Z(gate.q); }, individual_gate_times[3]);
+            if (qubits > 1) {
+                time_gate([](auto& sim, const Gate& gate) { sim.Cx(gate.q, gate.target); },
+                          individual_gate_times[4]);
+            }
         }
 
         std::cout << "qubits=" << qubits << " gates=" << gates << " repeats=" << repeats
@@ -133,6 +160,12 @@ int main(int argc, char** argv) {
                   << " bytes (" << static_cast<double>(memory_bytes) / 1024.0
                   << " KiB; excluding allocator overhead)\n";
         PrintTiming("gates", gate_times, gates);
+        for (std::size_t i{0}; i < gate_names.size(); ++i) {
+            if (!individual_gate_times[i].empty()) {
+                PrintTiming(gate_names[i], individual_gate_times[i], gates);
+            }
+        }
+
         PrintTiming("MeasureZ", measure_z_times, qubits);
         PrintTiming("copy", copy_times, 1);
     } catch (const std::exception& error) {

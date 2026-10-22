@@ -3,6 +3,8 @@
 
 #include <concepts>
 #include <cstddef>
+#include <limits>
+#include <stdexcept>
 
 #include "detail/inverse_tableau.hpp"
 #include "types.hpp"
@@ -13,6 +15,7 @@ template <typename T>
 concept SimulationBackend =
     std::constructible_from<T, QubitIdx> &&
     requires(T& backend, const T& const_backend, QubitIdx q, QubitIdx target) {
+        { const_backend.NumQubits() } noexcept -> std::same_as<QubitIdx>;
         { backend.Add() } -> std::same_as<void>;
         { backend.MeasureX(q) } -> std::same_as<bool>;
         { backend.MeasureZ(q) } -> std::same_as<bool>;
@@ -30,27 +33,60 @@ class Simulator {
    public:
     explicit Simulator(QubitIdx num_qubits) : backend_(num_qubits) {}
 
-    void Add() { backend_.Add(); }
+    void Add() {
+        if (backend_.NumQubits() == std::numeric_limits<QubitIdx>::max()) {
+            throw std::length_error{"Too many qubits"};
+        }
+        backend_.Add();
+    }
 
-    bool MeasureX(QubitIdx q) { return backend_.MeasureX(q); }
+    bool MeasureX(QubitIdx q) {
+        CheckQubit(q);
+        return backend_.MeasureX(q);
+    }
 
-    bool MeasureZ(QubitIdx q) { return backend_.MeasureZ(q); }
+    bool MeasureZ(QubitIdx q) {
+        CheckQubit(q);
+        return backend_.MeasureZ(q);
+    }
 
-    void H(QubitIdx q) { backend_.ApplyH(q); }
+    void H(QubitIdx q) {
+        CheckQubit(q);
+        backend_.ApplyH(q);
+    }
 
-    void S(QubitIdx q) { backend_.ApplyS(q); }
+    void S(QubitIdx q) {
+        CheckQubit(q);
+        backend_.ApplyS(q);
+    }
 
-    void X(QubitIdx q) { backend_.ApplyX(q); }
+    void X(QubitIdx q) {
+        CheckQubit(q);
+        backend_.ApplyX(q);
+    }
 
-    void Z(QubitIdx q) { backend_.ApplyZ(q); }
+    void Z(QubitIdx q) {
+        CheckQubit(q);
+        backend_.ApplyZ(q);
+    }
 
-    void Cx(QubitIdx ctrl, QubitIdx trgt) { backend_.ApplyCx(ctrl, trgt); }
+    void Cx(QubitIdx ctrl, QubitIdx trgt) {
+        CheckQubit(ctrl);
+        CheckQubit(trgt);
+        backend_.ApplyCx(ctrl, trgt);
+    }
 
     void Print() const { backend_.Print(); }
 
     [[nodiscard]] std::size_t MemoryUsage() const noexcept { return backend_.MemoryUsage(); }
 
    private:
+    void CheckQubit(QubitIdx q) const {
+        if (q >= backend_.NumQubits()) [[unlikely]] {
+            throw std::out_of_range{"Qubit index out of range"};
+        }
+    }
+
     Backend backend_;
 };
 }  // namespace stabaal

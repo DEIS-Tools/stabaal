@@ -1,10 +1,9 @@
-#include "stabaal/detail/pauli_string.hpp"
+#include "stabaal/detail/pauli_string_view.hpp"
 
 #include <algorithm>
 #include <bit>
 #include <cstddef>
 #include <cstdint>
-#include <span>
 
 #include "stabaal/detail/bit_word.hpp"
 #include "stabaal/types.hpp"
@@ -14,9 +13,8 @@ namespace stabaal::detail {
 namespace {
 
 __attribute__((target_clones("popcnt", "default"))) std::int64_t XorWordsWithPhase(
-    const std::span<std::uint64_t> xs, const std::span<std::uint64_t> zs,
-    const std::span<const std::uint64_t> other_xs,
-    const std::span<const std::uint64_t> other_zs) noexcept {
+    const BitWordSpan xs, const BitWordSpan zs, const ConstBitWordSpan other_xs,
+    const ConstBitWordSpan other_zs) noexcept {
     std::int64_t exponent{0};
     for (std::size_t i{0}; i < xs.size(); ++i) {
         const auto x{xs[i]};
@@ -30,12 +28,21 @@ __attribute__((target_clones("popcnt", "default"))) std::int64_t XorWordsWithPha
         xs[i] = new_x;
         zs[i] = new_z;
     }
+
     return exponent;
 }
 
-__attribute__((target_clones("popcnt", "default"))) bool OddParity(
-    const std::uint64_t value) noexcept {
-    return std::popcount(value) % 2 != 0;
+__attribute__((target_clones("popcnt", "default"))) bool MeasurementTargetWords(
+    const ConstBitWordSpan xs, const ConstBitWordSpan zs, const QubitIdx pivot,
+    const BitWordSpan targets) noexcept {
+    BitWord parity{0};
+    for (std::size_t i{0}; i < targets.size(); ++i) {
+        targets[i] = xs[i];
+        if (i == pivot / kBitsPerWord) targets[i] &= ~(BitWord{1} << (pivot % kBitsPerWord));
+        parity ^= zs[i] & targets[i];
+    }
+
+    return GetBit(zs, pivot) != (std::popcount(parity) % 2 != 0);
 }
 
 struct CleanupCounts {
@@ -44,10 +51,10 @@ struct CleanupCounts {
 };
 
 __attribute__((target_clones("popcnt", "default"))) CleanupCounts
-CleanUpWords(const std::span<std::uint64_t> xs, const std::span<const std::uint64_t> zs,
-             const std::span<const std::uint64_t> targets, const bool x) noexcept {
+CleanUpWords(const BitWordSpan xs, const ConstBitWordSpan zs, const ConstBitWordSpan targets,
+             const bool x) noexcept {
     CleanupCounts result{0, false};
-    std::uint64_t overlap{0};
+    BitWord overlap{0};
     for (std::size_t i{0}; i < targets.size(); ++i) {
         const auto selected_z{zs[i] & targets[i]};
         result.z_count += std::popcount(selected_z);
@@ -56,14 +63,14 @@ CleanUpWords(const std::span<std::uint64_t> xs, const std::span<const std::uint6
             xs[i] ^= targets[i];
         }
     }
+
     result.overlap_parity = std::popcount(overlap) % 2 != 0;
     return result;
 }
 
 }  // namespace
 
-PauliStringView::PauliStringView(const std::span<std::uint64_t> xs,
-                                 const std::span<std::uint64_t> zs) noexcept
+PauliStringView::PauliStringView(const BitWordSpan xs, const BitWordSpan zs) noexcept
     : xs_{xs}, zs_{zs} {}
 
 bool PauliStringView::AnyX(const std::size_t num_qubits) const noexcept {
@@ -86,18 +93,11 @@ void PauliStringView::SwapXZ(const QubitIdx idx) noexcept {
 }
 
 bool PauliStringView::MeasurementTargets(const QubitIdx pivot,
-                                         const std::span<std::uint64_t> targets) const noexcept {
-    std::uint64_t parity{0};
-    for (std::size_t i{0}; i < targets.size(); ++i) {
-        targets[i] = xs_[i];
-        if (i == pivot / kBitsPerWord) targets[i] &= ~(std::uint64_t{1} << (pivot % kBitsPerWord));
-        parity ^= zs_[i] & targets[i];
-    }
-
-    return GetZ(pivot) != OddParity(parity);
+                                         const BitWordSpan targets) const noexcept {
+    return MeasurementTargetWords(xs_, zs_, pivot, targets);
 }
 
-bool PauliStringView::CleanUp(const QubitIdx pivot, const std::span<const std::uint64_t> targets,
+bool PauliStringView::CleanUp(const QubitIdx pivot, const ConstBitWordSpan targets,
                               const bool apply_s_dagger) noexcept {
     const bool x{GetX(pivot)};
     bool z{GetZ(pivot)};
@@ -110,6 +110,7 @@ bool PauliStringView::CleanUp(const QubitIdx pivot, const std::span<const std::u
         flip = flip != (x && !z);
         z = z != x;
     }
+
     SetZ(pivot, z);
     return flip;
 }
