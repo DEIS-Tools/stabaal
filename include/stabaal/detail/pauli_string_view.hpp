@@ -1,9 +1,6 @@
 #ifndef STABAAL_DETAIL_PAULI_STRING_VIEW_HPP
 #define STABAAL_DETAIL_PAULI_STRING_VIEW_HPP
 
-#include <cstddef>
-#include <cstdint>
-
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {
@@ -11,7 +8,7 @@ class PauliStringView {
    public:
     PauliStringView(BitWordSpan xs, BitWordSpan zs) noexcept;
 
-    [[nodiscard]] bool AnyX(std::size_t num_qubits) const noexcept;
+    [[nodiscard]] bool AnyX(QubitIdx num_qubits) const noexcept;
 
     [[nodiscard]] bool GetX(QubitIdx idx) const noexcept;
     [[nodiscard]] bool GetZ(QubitIdx idx) const noexcept;
@@ -24,8 +21,8 @@ class PauliStringView {
     [[nodiscard]] bool CleanUp(QubitIdx pivot, ConstBitWordSpan targets,
                                bool apply_s_dagger) noexcept;
 
-    [[nodiscard]] std::int64_t XorWithPhase(const PauliStringView& other,
-                                            std::size_t num_qubits) noexcept;
+    [[nodiscard]] PhaseExponent XorWithPhase(const PauliStringView& other,
+                                             QubitIdx num_qubits) noexcept;
 
    private:
     BitWordSpan xs_;

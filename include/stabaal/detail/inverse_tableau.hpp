@@ -54,9 +54,9 @@ class InverseTableau {
     [[nodiscard]] ConstBitWordSpan Flags(std::size_t index) const noexcept;
     [[nodiscard]] std::size_t PhysicalBasis(QubitIdx q, Basis basis) const noexcept;
     [[nodiscard]] PauliStringView Generator(QubitIdx q, Basis basis) noexcept;
+    [[nodiscard]] PauliStringView PhysicalGenerator(QubitIdx q, std::size_t basis) noexcept;
     [[nodiscard]] bool Sign(QubitIdx q, Basis basis) const noexcept;
     void FlipSign(QubitIdx q, Basis basis) noexcept;
-    void SetSign(QubitIdx q, Basis basis, bool value) noexcept;
     void CopyRows(const InverseTableau& other) noexcept;
 
     [[nodiscard]] bool Measure(QubitIdx q, Basis basis);

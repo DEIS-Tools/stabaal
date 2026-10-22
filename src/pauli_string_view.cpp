@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <bit>
 #include <cstddef>
-#include <cstdint>
 
 #include "stabaal/detail/bit_word.hpp"
 #include "stabaal/types.hpp"
@@ -12,10 +11,11 @@ namespace stabaal::detail {
 
 namespace {
 
-__attribute__((target_clones("popcnt", "default"))) std::int64_t XorWordsWithPhase(
-    const BitWordSpan xs, const BitWordSpan zs, const ConstBitWordSpan other_xs,
-    const ConstBitWordSpan other_zs) noexcept {
-    std::int64_t exponent{0};
+__attribute__((target_clones("popcnt", "default"))) PhaseExponent
+XorWordsWithPhase(const BitWordSpan xs, const BitWordSpan zs, const ConstBitWordSpan other_xs,
+                  const ConstBitWordSpan other_zs) noexcept {
+    PhaseExponent exponent{0};
+    BitWord negative_phases{0};
     for (std::size_t i{0}; i < xs.size(); ++i) {
         const auto x{xs[i]};
         const auto z{zs[i]};
@@ -23,13 +23,17 @@ __attribute__((target_clones("popcnt", "default"))) std::int64_t XorWordsWithPha
         const auto other_z{other_zs[i]};
         const auto new_x{x ^ other_x};
         const auto new_z{z ^ other_z};
-        exponent += std::popcount(z & x) + std::popcount(other_z & other_x) +
-                    2 * std::popcount(z & other_x) - std::popcount(new_x & new_z);
+        const auto cross_xz{x & other_z};
+        const auto cross_zx{z & other_x};
+        const auto anticommuting{cross_xz ^ cross_zx};
+        // Anticommuting Paulis contribute i, with another factor of -1 for XZ, ZY, YX.
+        exponent += std::popcount(anticommuting);
+        negative_phases ^= anticommuting & ((new_x & other_z) ^ (x & z));
         xs[i] = new_x;
         zs[i] = new_z;
     }
 
-    return exponent;
+    return (exponent + PhaseExponent{2} * (std::popcount(negative_phases) % 2)) % 4;
 }
 
 __attribute__((target_clones("popcnt", "default"))) bool MeasurementTargetWords(
@@ -57,7 +61,7 @@ CleanUpWords(const BitWordSpan xs, const ConstBitWordSpan zs, const ConstBitWord
     BitWord overlap{0};
     for (std::size_t i{0}; i < targets.size(); ++i) {
         const auto selected_z{zs[i] & targets[i]};
-        result.z_count += std::popcount(selected_z);
+        result.z_count += static_cast<std::size_t>(std::popcount(selected_z));
         if (x) {
             overlap ^= xs[i] & selected_z;
             xs[i] ^= targets[i];
@@ -73,7 +77,7 @@ CleanUpWords(const BitWordSpan xs, const ConstBitWordSpan zs, const ConstBitWord
 PauliStringView::PauliStringView(const BitWordSpan xs, const BitWordSpan zs) noexcept
     : xs_{xs}, zs_{zs} {}
 
-bool PauliStringView::AnyX(const std::size_t num_qubits) const noexcept {
+bool PauliStringView::AnyX(const QubitIdx num_qubits) const noexcept {
     const auto words{xs_.first(WordCount(num_qubits))};
     return std::any_of(words.begin(), words.end(), [](const auto word) { return word != 0; });
 }
@@ -115,8 +119,8 @@ bool PauliStringView::CleanUp(const QubitIdx pivot, const ConstBitWordSpan targe
     return flip;
 }
 
-std::int64_t PauliStringView::XorWithPhase(const PauliStringView& other,
-                                           const std::size_t num_qubits) noexcept {
+PhaseExponent PauliStringView::XorWithPhase(const PauliStringView& other,
+                                            const QubitIdx num_qubits) noexcept {
     const auto num_words{WordCount(num_qubits)};
     return XorWordsWithPhase(xs_.first(num_words), zs_.first(num_words), other.xs_.first(num_words),
                              other.zs_.first(num_words));

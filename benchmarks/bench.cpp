@@ -155,10 +155,17 @@ int main(int argc, char** argv) {
             }
         }
 
+        auto memory{static_cast<double>(memory_bytes)};
+        constexpr std::array<std::string_view, 4> memory_units{"B", "KiB", "MiB", "GiB"};
+        std::size_t memory_unit{0};
+        while (memory >= 1024 && memory_unit + 1 < memory_units.size()) {
+            memory /= 1024;
+            ++memory_unit;
+        }
+
         std::cout << "qubits=" << qubits << " gates=" << gates << " repeats=" << repeats
-                  << std::fixed << std::setprecision(3) << "\nsimulator_memory=" << memory_bytes
-                  << " bytes (" << static_cast<double>(memory_bytes) / 1024.0
-                  << " KiB; excluding allocator overhead)\n";
+                  << std::fixed << std::setprecision(3) << "\nsimulator_memory=" << memory << ' '
+                  << memory_units[memory_unit] << " (excluding allocator overhead)\n";
         PrintTiming("gates", gate_times, gates);
         for (std::size_t i{0}; i < gate_names.size(); ++i) {
             if (!individual_gate_times[i].empty()) {

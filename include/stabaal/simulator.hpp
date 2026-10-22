@@ -34,9 +34,10 @@ class Simulator {
     explicit Simulator(QubitIdx num_qubits) : backend_(num_qubits) {}
 
     void Add() {
-        if (backend_.NumQubits() == std::numeric_limits<QubitIdx>::max()) {
+        if (backend_.NumQubits() == std::numeric_limits<QubitIdx>::max()) [[unlikely]] {
             throw std::length_error{"Too many qubits"};
         }
+
         backend_.Add();
     }
 

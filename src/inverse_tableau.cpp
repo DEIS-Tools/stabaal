@@ -4,7 +4,6 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <initializer_list>
 #include <iostream>
 #include <limits>
@@ -26,17 +25,21 @@ constexpr std::size_t kPauliComponents{2};
 constexpr std::size_t kSwapFlags{kBasisCount};
 constexpr std::size_t kFlagArrays{kBasisCount + 1};
 constexpr std::size_t kStackTargetWords{16};
-constexpr BitWord kGrowthRatePercent{25};
+constexpr QubitIdx kGrowthDivisor{4};
+
+// The complete QubitIdx range needs up to twice its bit width for storage sizes.
+static_assert(std::numeric_limits<std::size_t>::digits >=
+              2 * std::numeric_limits<QubitIdx>::digits);
 
 [[nodiscard]] std::mt19937& RandomEngine() {
     static thread_local std::mt19937 engine{std::random_device{}()};
     return engine;
 }
 
-[[nodiscard]] bool Phase(const std::int64_t exponent, const bool a_sign, const bool b_sign,
-                         const std::uint8_t phase_rule) noexcept {
-    assert(phase_rule < 4);
-    const auto phase{static_cast<BitWord>(exponent + phase_rule) & 3U};
+[[nodiscard]] bool Phase(const PhaseExponent exponent, const bool a_sign, const bool b_sign,
+                         const PhaseExponent phase_rule) noexcept {
+    assert(phase_rule >= 0 && phase_rule < 4);
+    const auto phase{((exponent + phase_rule) % 4 + 4) % 4};
     assert(phase % 2 == 0);
     return (phase == 2) != (a_sign != b_sign);
 }
@@ -71,7 +74,12 @@ std::size_t InverseTableau::PhysicalBasis(const QubitIdx q, const Basis basis) c
 }
 
 PauliStringView InverseTableau::Generator(const QubitIdx q, const Basis basis) noexcept {
-    const auto row{kPauliComponents * (PhysicalBasis(q, basis) * capacity_ + q)};
+    return PhysicalGenerator(q, PhysicalBasis(q, basis));
+}
+
+PauliStringView InverseTableau::PhysicalGenerator(const QubitIdx q,
+                                                  const std::size_t basis) noexcept {
+    const auto row{kPauliComponents * (basis * capacity_ + q)};
     return {RowWords(row), RowWords(row + 1)};
 }
 
@@ -81,10 +89,6 @@ bool InverseTableau::Sign(const QubitIdx q, const Basis basis) const noexcept {
 
 void InverseTableau::FlipSign(const QubitIdx q, const Basis basis) noexcept {
     FlipBit(Flags(PhysicalBasis(q, basis)), q);
-}
-
-void InverseTableau::SetSign(const QubitIdx q, const Basis basis, const bool value) noexcept {
-    SetBit(Flags(PhysicalBasis(q, basis)), q, value);
 }
 
 InverseTableau::InverseTableau(const QubitIdx num_qubits)
@@ -152,11 +156,8 @@ void InverseTableau::Add() {
     assert(num_qubits_ < std::numeric_limits<QubitIdx>::max());
 
     if (num_qubits_ == capacity_) {
-        const auto growth{std::max(capacity_ * kGrowthRatePercent / 100, BitWord{1})};
-        const auto extra{
-            static_cast<QubitIdx>(
-                std::min<BitWord>(growth, std::numeric_limits<QubitIdx>::max() - capacity_)),
-        };
+        const auto growth{std::max(capacity_ / kGrowthDivisor, QubitIdx{1})};
+        const auto extra{std::min(growth, std::numeric_limits<QubitIdx>::max() - capacity_)};
         InverseTableau grown{0};
         grown.capacity_ = capacity_ + extra;
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
@@ -241,12 +242,17 @@ void InverseTableau::ApplyH(const QubitIdx q) noexcept {
 void InverseTableau::ApplyS(const QubitIdx q) noexcept {
     assert(q < num_qubits_);
 
+    const auto computational{PhysicalBasis(q, Basis::kComputational)};
+    const auto hadamard{computational ^ 1U};
+    const auto computational_signs{Flags(computational)};
+    const auto hadamard_signs{Flags(hadamard)};
+    const bool computational_sign{GetBit(computational_signs, q)};
+    const bool hadamard_sign{GetBit(hadamard_signs, q)};
     const auto exponent{
-        Generator(q, Basis::kHadamard)
-            .XorWithPhase(Generator(q, Basis::kComputational), num_qubits_),
+        PhysicalGenerator(q, hadamard)
+            .XorWithPhase(PhysicalGenerator(q, computational), num_qubits_),
     };
-    SetSign(q, Basis::kHadamard,
-            Phase(exponent, Sign(q, Basis::kHadamard), Sign(q, Basis::kComputational), 3));
+    SetBit(hadamard_signs, q, Phase(exponent, hadamard_sign, computational_sign, 3));
 }
 
 void InverseTableau::ApplyX(const QubitIdx q) noexcept {
@@ -265,19 +271,30 @@ void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) noexcept {
     assert(c < num_qubits_);
     assert(t < num_qubits_);
 
+    const auto c_computational{PhysicalBasis(c, Basis::kComputational)};
+    const auto t_computational{PhysicalBasis(t, Basis::kComputational)};
+    const auto c_hadamard{c_computational ^ 1U};
+    const auto t_hadamard{t_computational ^ 1U};
+    const auto c_hadamard_signs{Flags(c_hadamard)};
+    const auto t_hadamard_signs{Flags(t_hadamard)};
+    const bool c_hadamard_sign{GetBit(c_hadamard_signs, c)};
+    const bool t_hadamard_sign{GetBit(t_hadamard_signs, t)};
     const auto hadamard_phase{
-        Generator(c, Basis::kHadamard).XorWithPhase(Generator(t, Basis::kHadamard), num_qubits_),
+        PhysicalGenerator(c, c_hadamard)
+            .XorWithPhase(PhysicalGenerator(t, t_hadamard), num_qubits_),
     };
-    SetSign(c, Basis::kHadamard,
-            Phase(hadamard_phase, Sign(c, Basis::kHadamard), Sign(t, Basis::kHadamard), 0));
+    SetBit(c_hadamard_signs, c, Phase(hadamard_phase, c_hadamard_sign, t_hadamard_sign, 0));
 
+    const auto c_computational_signs{Flags(c_computational)};
+    const auto t_computational_signs{Flags(t_computational)};
+    const bool c_computational_sign{GetBit(c_computational_signs, c)};
+    const bool t_computational_sign{GetBit(t_computational_signs, t)};
     const auto computational_phase{
-        Generator(t, Basis::kComputational)
-            .XorWithPhase(Generator(c, Basis::kComputational), num_qubits_),
+        PhysicalGenerator(t, t_computational)
+            .XorWithPhase(PhysicalGenerator(c, c_computational), num_qubits_),
     };
-    SetSign(t, Basis::kComputational,
-            Phase(computational_phase, Sign(t, Basis::kComputational),
-                  Sign(c, Basis::kComputational), 0));
+    SetBit(t_computational_signs, t,
+           Phase(computational_phase, t_computational_sign, c_computational_sign, 0));
 }
 
 std::size_t InverseTableau::MemoryUsage() const noexcept {
@@ -307,6 +324,7 @@ void InverseTableau::Print() const {
                               << (j == num_qubits_ - 1 ? " | " : " ");
                 }
             }
+
             std::cout << Sign(i, basis) << " |";
         }
     }
