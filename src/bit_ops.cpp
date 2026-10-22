@@ -26,11 +26,23 @@ namespace {
     return BitWord{1} << GetWordOffset(index);
 }
 
+/**
+ * Find the word containing the selected bit.
+ * @param words Words containing the bit.
+ * @param index Bit index across all words, not a word index.
+ * @return A read-only reference to the word containing the bit.
+ */
 [[nodiscard]] const BitWord& GetWord(const ConstBitWordSpan words,
                                      const std::size_t index) noexcept {
     return words[index / kBitsPerWord];
 }
 
+/**
+ * Find the word containing the selected bit.
+ * @param words Words containing the bit.
+ * @param index Bit index across all words, not a word index.
+ * @return A writable reference to the word containing the bit.
+ */
 [[nodiscard]] BitWord& GetWord(const BitWordSpan words, const std::size_t index) noexcept {
     return words[index / kBitsPerWord];
 }
