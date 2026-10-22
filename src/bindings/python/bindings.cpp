@@ -3,6 +3,7 @@
 #include <pybind11/pytypes.h>
 
 #include "stabaal/simulator.hpp"
+#include "stabaal/types.hpp"
 
 namespace py = pybind11;
 
