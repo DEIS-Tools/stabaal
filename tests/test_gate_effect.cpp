@@ -194,6 +194,12 @@ TEST_CASE("Generated methods match the hand-written gates", "[gate_effect][inver
     CHECK(rows(a) == rows(b));
 }
 
+// CZ maps X_1 -> Z_0 X_1, so the output row X_1 reads itself after a Z row was written into it.
+inline constexpr auto kCzMat{kronecker(kP0Mat, kIMat) + kronecker(kP1Mat, kZMat)};
+// SWAP maps X_0 -> X_1 and X_1 -> X_0, so the rows have to be copied before they are overwritten.
+inline constexpr auto kCxReversedMat{kronecker(kIMat, kP0Mat) + kronecker(kXMat, kP1Mat)};
+inline constexpr auto kSwapMat{kCxMat * kCxReversedMat * kCxMat};
+
 TEST_CASE("apply<M> for gates without a generated method", "[gate_effect][inverse_tableau]") {
     const auto seed{GENERATE(range(0U, 32U))};
     CAPTURE(seed);
@@ -214,6 +220,18 @@ TEST_CASE("apply<M> for gates without a generated method", "[gate_effect][invers
     SECTION("S^dagger matches three S") {
         for (std::uint32_t i{0}; i < 3; ++i) a.applyS(1);
         b.apply<kSMat.adjoint()>(1);
+    }
+    SECTION("CZ matches H CX H on the target") {
+        a.applyH(2);
+        a.applyCx(0, 2);
+        a.applyH(2);
+        b.apply<kCzMat>(0, 2);
+    }
+    SECTION("SWAP matches three CX") {
+        a.applyCx(1, 0);
+        a.applyCx(0, 1);
+        a.applyCx(1, 0);
+        b.apply<kSwapMat>(1, 0);
     }
 
     CHECK(rows(a) == rows(b));

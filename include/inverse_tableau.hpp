@@ -43,8 +43,6 @@ class InverseTableau {
     void applyS(QubitIdx q);
     void applyZ(QubitIdx q);
 
-    // Applies the Clifford gate M to the given qubits, its effect on the tableau rows is derived
-    // from the matrix at compile time.
     template <UMat M, std::convertible_to<QubitIdx>... Qubits>
     void apply(const Qubits... qubits) {
         constexpr auto k_len{sizeof...(Qubits)};
@@ -59,28 +57,32 @@ class InverseTableau {
             }
         }
 
-        // The new rows are built from the old ones, so rows that are overwritten before their
-        // last read are copied to scratch_ first, the rest are read in place.
         static constexpr auto k_copy{findRowsToCopy(k_effect)};
         if (scratch_.size() < 2 * k_len) scratch_.resize(2 * k_len);
+
+        // Make a reference to the old gens 
         GateRows<k_len> old{};
-        for (std::size_t j{0}; j < k_len; ++j) {
-            old.gens[2 * j] = &computational_.gens[qs[j]];
-            old.gens[2 * j + 1] = &hadamard_.gens[qs[j]];
-            old.signs[2 * j] = computational_.signs.get(qs[j]);
-            old.signs[2 * j + 1] = hadamard_.signs.get(qs[j]);
+        for (std::size_t i{0}; i < k_len; ++i) {
+            old.gens[2*i]  = &hadamard_.gens[qs[i]];
+            old.signs[2*i] = hadamard_.signs.get(qs[i]);
+            old.gens[2*i+1]  = &computational_.gens[qs[i]];
+            old.signs[2*i+1] = computational_.signs.get(qs[i]);
         }
+        
+        // copy only the rows which are overwritten before all its uses are done
         for (std::size_t r{0}; r < 2 * k_len; ++r) {
             if (!k_copy[r]) continue;
             scratch_[r] = *old.gens[r];
             old.gens[r] = &scratch_[r];
         }
 
-        for (std::size_t j{0}; j < k_len; ++j) {
+        // Written in the same order as the rows are numbered, which findRowsToCopy relies on.
+        for (std::size_t i{0}; i < k_len; ++i) {
+            hadamard_.signs.set(qs[i],
+                                combineRows(k_effect.hadamard[i], old, hadamard_.gens[qs[i]]));
+
             computational_.signs.set(
-                qs[j], combineRows(k_effect.computational[j], old, computational_.gens[qs[j]]));
-            hadamard_.signs.set(qs[j],
-                                combineRows(k_effect.hadamard[j], old, hadamard_.gens[qs[j]]));
+                qs[i], combineRows(k_effect.computational[i], old, computational_.gens[qs[i]]));
         }
     }
 
@@ -95,7 +97,6 @@ class InverseTableau {
     std::size_t memoryUsage() const noexcept;
 
    private:
-    // The old rows a gate reads, numbered as in findRowsToCopy.
     template <std::size_t N>
     struct GateRows {
         std::array<const PauliString *, 2 * N> gens;
@@ -127,8 +128,7 @@ bool InverseTableau::combineRows(const GenEffect<N> &effect, const GateRows<N> &
                                  PauliString &out) {
     std::int64_t exponent{effect.r ? 2 : 0};
     bool first{true};
-    // The first row is copied into out, which reuses its allocation and equals multiplying it
-    // onto the identity.
+
     const auto multiply{[&](const std::size_t r) {
         if (first) {
             out = *old.gens[r];
@@ -139,13 +139,11 @@ bool InverseTableau::combineRows(const GenEffect<N> &effect, const GateRows<N> &
         exponent += old.signs[r] ? 2 : 0;
     }};
 
-    for (std::size_t k{0}; k < N; ++k) {
-        if (effect.x[k]) multiply(2 * k + 1);
-        if (effect.z[k]) multiply(2 * k);
-        // Y = iXZ
-        if (effect.x[k] && effect.z[k]) ++exponent;
+    for (std::size_t i{0}; i < N; ++i) {
+        if (effect.x[i]) multiply(2*i);
+        if (effect.z[i]) multiply(2*i + 1);
+        if (effect.x[i] && effect.z[i]) ++exponent;
     }
-    // A unitary never maps Z_k or X_k to the identity.
     assert(!first);
 
     const auto phase{static_cast<std::uint64_t>(exponent) & 3U};

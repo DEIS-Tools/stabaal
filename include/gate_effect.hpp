@@ -148,15 +148,16 @@ constexpr std::pair<bool, GenEffect<N>> findGeneratorEffect(const std::array<Pau
         }
 
         return found;
-    } else {
-        std::array<UMat<2>, N> mats{};
-        std::transform(paulis.begin(), paulis.end(), mats.begin(),
-                       [](const Pauli p) { return kPauliMats[static_cast<std::size_t>(p)]; });
+    } 
+    
+    std::array<UMat<2>, N> mats{};
+    std::transform(paulis.begin(), paulis.end(), mats.begin(),
+                    [](const Pauli p) { return kPauliMats[static_cast<std::size_t>(p)]; });
 
-        const auto trace{(res * kronecker<N>(std::span<const UMat<2>, N>{mats})).trace()};
-        return (trace.z != 0) ? std::pair{true, GenEffect<N>{paulis, trace.z < 0}}
-                              : std::pair{false, GenEffect<N>{}};
-    }
+    const auto trace{(res * kronecker<N>(std::span<const UMat<2>, N>{mats})).trace()};
+    return (trace.z != 0) ? std::pair{true, GenEffect<N>{paulis, trace.z < 0}}
+                            : std::pair{false, GenEffect<N>{}};
+
 }
 
 template <std::size_t N>
@@ -177,18 +178,23 @@ constexpr GateEffect<N> findGateEffect(const UMat<std::size_t{1} << N> &gate) {
 template <std::size_t N>
 constexpr std::array<bool, 2 * N> findRowsToCopy(const GateEffect<N> &effect) {
     std::array<bool, 2 * N> copy{};
-    for (std::size_t out{0}; out < 2 * N; ++out) {
-        const auto &image{(out % 2 == 0) ? effect.computational[out / 2]
-                                         : effect.hadamard[out / 2]};
+
+    const auto check_output{[&](const GenEffect<N> &gen_effect, const std::size_t out) {
         bool first{true};
-        for (std::size_t k{0}; k < N; ++k) {
-            for (const auto [read, row] :
-                 {std::pair{image.x[k], 2 * k + 1}, std::pair{image.z[k], 2 * k}}) {
-                if (!read) continue;
-                if (row < out || (row == out && !first)) copy[row] = true;
-                first = false;
-            }
+        const auto read{[&](const bool reads, const std::size_t row) {
+            if (!reads) return;
+            if (row < out || (row == out && !first)) copy[row] = true;
+            first = false;
+        }};
+        for (std::size_t i{0}; i < N; ++i) {
+            read(gen_effect.x[i], 2*i); 
+            read(gen_effect.z[i], 2*i+1);
         }
+    }};
+
+    for (std::size_t i{0}; i < N; ++i) {
+        check_output(effect.hadamard[i], 2*i);
+        check_output(effect.computational[i], 2*i+1);
     }
 
     return copy;

@@ -14,6 +14,18 @@
       }
     },
     {
+      "name": "test",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_INTERPROCEDURAL_OPTIMIZATION": false,
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "CMAKE_CXX_SCAN_FOR_MODULES": false,
+        "BUILD_TESTING": true
+      }
+    },
+    {
       "name": "release",
       "inherits": "debug",
       "cacheVariables": {
@@ -34,6 +46,7 @@
   ],
   "buildPresets": [
     { "name": "debug", "configurePreset": "debug" },
+    { "name": "test", "configurePreset": "test" },
     { "name": "release", "configurePreset": "release" },
     { "name": "profile", "configurePreset": "profile" }
   ],
@@ -43,6 +56,13 @@
       "steps": [
         { "type": "configure", "name": "debug" },
         { "type": "build", "name": "debug" }
+      ]
+    },
+    {
+      "name": "test",
+      "steps": [
+        { "type": "configure", "name": "test" },
+        { "type": "build", "name": "test" }
       ]
     },
     {
