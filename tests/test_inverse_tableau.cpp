@@ -57,9 +57,31 @@ struct StateVector {
                 case 3:
                     amplitudes[j] = -amplitudes[j];
                     break;
-                case 4:
+                case 4: {
+                    const auto a{amplitudes[i]};
+                    amplitudes[i] = std::complex<double>{0, -1} * amplitudes[j];
+                    amplitudes[j] = std::complex<double>{0, 1} * a;
+                    break;
+                }
+                case 5:
+                    amplitudes[j] *= std::complex<double>{0, -1};
+                    break;
+                case 6:
+                    break;
+                case 7:
                     if ((j & (std::size_t{1} << target)) == 0) {
                         std::swap(amplitudes[j], amplitudes[j | (std::size_t{1} << target)]);
+                    }
+                    break;
+                case 8:
+                    if ((j & (std::size_t{1} << target)) != 0) amplitudes[j] = -amplitudes[j];
+                    break;
+                case 9:
+                    if ((j & (std::size_t{1} << target)) == 0) {
+                        const auto k{j | (std::size_t{1} << target)};
+                        const auto a{amplitudes[j]};
+                        amplitudes[j] = std::complex<double>{0, -1} * amplitudes[k];
+                        amplitudes[k] = std::complex<double>{0, 1} * a;
                     }
                     break;
             }
@@ -95,7 +117,7 @@ TEST_CASE("InverseTableau gates and measurements agree with state-vector simulat
                 reference.Add();
                 ++n;
             }
-            const auto gate{static_cast<std::uint8_t>(choices() % (n == 1 ? 4 : 5))};
+            const auto gate{static_cast<std::uint8_t>(choices() % (n == 1 ? 7 : 10))};
             const QubitSize q{static_cast<QubitSize>(choices() % n)};
             const QubitSize target{
                 static_cast<QubitSize>((q + 1 + choices() % (n == 1 ? 1 : n - 1)) % n)};
@@ -114,7 +136,22 @@ TEST_CASE("InverseTableau gates and measurements agree with state-vector simulat
                     tableau.ApplyZ(q);
                     break;
                 case 4:
+                    tableau.ApplyY(q);
+                    break;
+                case 5:
+                    tableau.ApplySdg(q);
+                    break;
+                case 6:
+                    tableau.ApplyI(q);
+                    break;
+                case 7:
                     tableau.ApplyCx(q, target);
+                    break;
+                case 8:
+                    tableau.ApplyCz(q, target);
+                    break;
+                case 9:
+                    tableau.ApplyCy(q, target);
                     break;
             }
             reference.Apply(gate, q, target);
@@ -131,6 +168,126 @@ TEST_CASE("InverseTableau gates and measurements agree with state-vector simulat
             reference.MeasureZ(q, tableau.MeasureZ(q));
         }
     }
+}
+
+TEST_CASE("Y flips X and Z eigenvalues and preserves Y eigenvalues", "[simulator][Y]") {
+    const auto n{GENERATE(QubitSize{1}, QubitSize{64}, QubitSize{65}, QubitSize{129})};
+    const auto basis{GENERATE(0, 1, 2)};  // Z, X, Y
+    const bool negative{GENERATE(false, true)};
+    const auto q{n - 1};
+    Simulator<> sim{n};
+    if (negative) sim.X(q);
+    if (basis != 0) sim.H(q);
+    if (basis == 2) sim.S(q);
+    sim.Y(q);
+    if (basis == 2) {
+        sim.S(q);
+        sim.Z(q);
+    }
+    CHECK((basis == 0 ? sim.MeasureZ(q) : sim.MeasureX(q)) == (negative != (basis != 2)));
+    if (q != 0) CHECK_FALSE(sim.MeasureZ(0));
+}
+
+TEST_CASE("Sdg maps X to negative Y, Y to X, and preserves Z", "[simulator][Sdg]") {
+    const auto n{
+        GENERATE(QubitSize{1}, QubitSize{63}, QubitSize{64}, QubitSize{65}, QubitSize{129})};
+    const auto basis{GENERATE(0, 1, 2)};  // Z, X, Y
+    const bool negative{GENERATE(false, true)};
+    const auto q{n - 1};
+    CAPTURE(n, basis, negative);
+    Simulator<> sim{n};
+    if (negative) sim.X(q);
+    if (basis != 0) sim.H(q);
+    if (basis == 2) sim.S(q);
+    sim.Sdg(q);
+    if (basis == 1) {
+        sim.S(q);
+        sim.Z(q);
+    }
+    CHECK((basis == 0 ? sim.MeasureZ(q) : sim.MeasureX(q)) == (negative != (basis == 1)));
+    if (q != 0) CHECK_FALSE(sim.MeasureZ(0));
+}
+
+TEST_CASE("Sdg cancels an entangled phase across word boundaries", "[simulator][Sdg][entangle]") {
+    const auto n{GENERATE(QubitSize{2}, QubitSize{64}, QubitSize{65}, QubitSize{129})};
+    const bool reverse{GENERATE(false, true)};
+    const bool negative{GENERATE(false, true)};
+    const bool x_basis{GENERATE(false, true)};
+    const QubitSize c{reverse ? n - 1 : 0};
+    const QubitSize t{reverse ? 0 : n - 1};
+    CAPTURE(n, c, t, negative, x_basis);
+    Simulator<> sim{n};
+    sim.H(c);
+    sim.Cx(c, t);
+    if (negative) sim.Z(c);
+    sim.S(c);
+    sim.Sdg(t);
+    const auto first{x_basis ? sim.MeasureX(c) : sim.MeasureZ(c)};
+    const auto second{x_basis ? sim.MeasureX(t) : sim.MeasureZ(t)};
+    CHECK((first != second) == (x_basis && negative));
+}
+
+TEST_CASE("Identity preserves an entangled state and its phase", "[simulator][I]") {
+    const auto n{GENERATE(QubitSize{2}, QubitSize{65}, QubitSize{129})};
+    const bool x_basis{GENERATE(false, true)};
+    Simulator<> sim{n};
+    sim.H(0);
+    sim.Cx(0, n - 1);
+    sim.Z(0);
+    for (QubitSize q{0}; q < n; ++q) sim.I(q);
+    const auto first{x_basis ? sim.MeasureX(0) : sim.MeasureZ(0)};
+    const auto second{x_basis ? sim.MeasureX(n - 1) : sim.MeasureZ(n - 1)};
+    CHECK((first != second) == x_basis);
+}
+
+TEST_CASE("CZ and CY apply the target Pauli only when the control is one", "[simulator][Cz][Cy]") {
+    const auto n{GENERATE(QubitSize{2}, QubitSize{65}, QubitSize{129})};
+    const bool reverse{GENERATE(false, true)};
+    const bool cy{GENERATE(false, true)};
+    const bool control{GENERATE(false, true)};
+    const bool negative{GENERATE(false, true)};
+    const auto basis{GENERATE(0, 1, 2)};  // Z, X, Y
+    const QubitSize c{reverse ? n - 1 : 0};
+    const QubitSize t{reverse ? 0 : n - 1};
+    CAPTURE(n, cy, c, t, control, negative, basis);
+    Simulator<> sim{n};
+    if (control) sim.X(c);
+    if (negative) sim.X(t);
+    if (basis != 0) sim.H(t);
+    if (basis == 2) sim.S(t);
+    if (cy)
+        sim.Cy(c, t);
+    else
+        sim.Cz(c, t);
+    if (basis == 2) {
+        sim.S(t);
+        sim.Z(t);
+    }
+    const bool flips{cy ? basis != 2 : basis != 0};
+    CHECK((basis == 0 ? sim.MeasureZ(t) : sim.MeasureX(t)) == (negative != (control && flips)));
+    CHECK(sim.MeasureZ(c) == control);
+}
+
+TEST_CASE("CZ and CY preserve coherent control phases", "[simulator][Cz][Cy][entangle]") {
+    const bool cy{GENERATE(false, true)};
+    const bool x_basis{GENERATE(false, true)};
+    const bool reverse{GENERATE(false, true)};
+    const QubitSize c{reverse ? 1U : 0U};
+    const QubitSize t{1 - c};
+    CAPTURE(cy, x_basis, c, t);
+    Simulator<> sim{2};
+    sim.H(c);
+    if (cy) {
+        sim.Cy(c, t);
+        sim.S(t);
+        sim.Z(t);
+    } else {
+        sim.H(t);
+        sim.Cz(c, t);
+        sim.H(t);
+    }
+    const auto first{x_basis ? sim.MeasureX(c) : sim.MeasureZ(c)};
+    CHECK((x_basis ? sim.MeasureX(t) : sim.MeasureZ(t)) == first);
 }
 
 TEST_CASE("New qubits start in zero", "[inverse_tableau][add]") {
@@ -316,9 +473,16 @@ TEST_CASE("Simulator rejects invalid gate and measurement indices", "[simulator]
         CHECK_THROWS_AS(tableau.H(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.X(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.S(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Sdg(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.Z(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Y(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.I(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.Cx(q, 0), std::out_of_range);
         CHECK_THROWS_AS(tableau.Cx(0, q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Cz(q, 0), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Cz(0, q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Cy(q, 0), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Cy(0, q), std::out_of_range);
         CHECK_THROWS_AS(tableau.MeasureX(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.MeasureZ(q), std::out_of_range);
     }
