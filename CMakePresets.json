@@ -9,7 +9,8 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INTERPROCEDURAL_OPTIMIZATION": false,
         "CMAKE_EXPORT_COMPILE_COMMANDS": true,
-        "BUILD_TESTING": false
+        "CMAKE_CXX_SCAN_FOR_MODULES": false,
+        "BUILD_TESTING": true
       }
     },
     {

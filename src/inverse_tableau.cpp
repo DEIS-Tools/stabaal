@@ -270,7 +270,7 @@ bool InverseTableau::ForceMeasureZ(const QubitIdx q, const bool measurement){
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    if (IsDeterministicMeasureX(q)) {
+    if (IsDeterministicMeasureZ(q)) {
         // Probably the wrong error type
         throw std::logic_error("This qubit provides a deterministic measurement");
     }
@@ -296,7 +296,7 @@ bool InverseTableau::ForceMeasureX(const QubitIdx q, const bool measurement){
         throw std::out_of_range{"Qubit index out of range"};
     }
 
-    if (IsDeterministicMeasureZ(q)) {
+    if (IsDeterministicMeasureX(q)) {
         // Probably the wrong error type
         throw std::logic_error("This qubit provides a deterministic measurement");
     }
