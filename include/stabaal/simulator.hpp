@@ -20,6 +20,7 @@ concept SimulationBackend =
     requires(T& backend, const T& const_backend, QubitSize q, QubitSize c, QubitSize t) {
         { const_backend.NumQubits() } noexcept -> std::same_as<QubitSize>;
         { backend.Add() } -> std::same_as<void>;
+        { backend.Discard(q) } -> std::same_as<void>;
         { backend.MeasureX(q) } -> std::same_as<bool>;
         { backend.MeasureZ(q) } -> std::same_as<bool>;
         { backend.ApplyH(q) } -> std::same_as<void>;
@@ -50,6 +51,15 @@ class Simulator {
         }
 
         backend_.Add();
+    }
+
+    /**
+     * Discards qubit q from the tableau.
+     * @param q Qubit index.
+     */
+    void Discard(QubitSize q) {
+        CheckQubit(q);
+        backend_.Discard(q);
     }
 
     /**
