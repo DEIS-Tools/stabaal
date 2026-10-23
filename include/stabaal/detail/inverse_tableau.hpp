@@ -81,6 +81,18 @@ class InverseTableau {
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
     [[nodiscard]] bool MeasureZ(QubitSize q);
+    
+    bool IsDeterministicMeasureX(QubitIdx q);
+    bool IsDeterministicMeasureZ(QubitIdx q);
+
+    bool ForceMeasureX(QubitIdx q, bool measurement);
+    bool ForceMeasureZ(QubitIdx q, bool measurement);
+
+    void ApplyH(QubitIdx q) noexcept;
+    void ApplyS(QubitIdx q) noexcept;
+    void ApplyX(QubitIdx q) noexcept;
+    void ApplyZ(QubitIdx q) noexcept;
+    void ApplyCx(QubitIdx c, QubitIdx t) noexcept;
 
     /**
      * Apply a Hadamard gate to qubit q.

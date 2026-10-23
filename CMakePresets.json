@@ -10,7 +10,7 @@
         "CMAKE_INTERPROCEDURAL_OPTIMIZATION": false,
         "CMAKE_EXPORT_COMPILE_COMMANDS": true,
         "CMAKE_CXX_SCAN_FOR_MODULES": false,
-        "BUILD_TESTING": false
+        "BUILD_TESTING": true
       }
     },
     {
