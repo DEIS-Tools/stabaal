@@ -348,7 +348,7 @@ TEST_CASE("Simulator rejects qubit count overflow before calling the backend",
         }
     };
     Simulator<FullBackend> simulator{0};
-    CHECK_THROWS_AS(simulator.Add(), std::length_error);
+    CHECK_THROWS_AS(simulator.Add(), std::error_category);
 }
 
 TEST_CASE("GHZ measurement parity preserves phases across word boundaries",
