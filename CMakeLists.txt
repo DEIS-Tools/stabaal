@@ -33,7 +33,18 @@ if(BUILD_PYTHON_BINDINGS)
     pybind11_add_module(stabaal_python src/bindings/python/bindings.cpp)
     target_link_libraries(stabaal_python PRIVATE stabaal)
     set_target_properties(stabaal_python PROPERTIES OUTPUT_NAME stabaal)
+    add_custom_command(
+        OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/stubs/stabaal.pyi"
+        COMMAND "${Python_EXECUTABLE}" -m pybind11_stubgen stabaal
+                -o "${CMAKE_CURRENT_BINARY_DIR}/stubs" --exit-code
+        WORKING_DIRECTORY "$<TARGET_FILE_DIR:stabaal_python>"
+        DEPENDS stabaal_python
+        VERBATIM
+    )
+    add_custom_target(stabaal_stubs ALL
+        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/stubs/stabaal.pyi")
     install(TARGETS stabaal_python LIBRARY DESTINATION . RUNTIME DESTINATION .)
+    install(FILES "${CMAKE_CURRENT_BINARY_DIR}/stubs/stabaal.pyi" DESTINATION .)
 endif()
 
 include(CTest)

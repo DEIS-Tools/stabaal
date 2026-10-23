@@ -36,6 +36,6 @@ PYBIND11_MODULE(stabaal, m) {
         [](stabaal::QubitSize num_qubits, const py::object& backend) {
             return backend(num_qubits);
         },
-        py::arg("num_qubits"), py::arg("backend") = inverse,
+        py::arg("num_qubits"), py::arg_v("backend", inverse, "InverseTableau"),
         "Create a simulator using the selected backend constructor. Defaults to InverseTableau.");
 }
