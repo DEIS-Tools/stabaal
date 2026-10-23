@@ -24,9 +24,14 @@ concept SimulationBackend =
         { backend.MeasureZ(q) } -> std::same_as<bool>;
         { backend.ApplyH(q) } -> std::same_as<void>;
         { backend.ApplyS(q) } -> std::same_as<void>;
+        { backend.ApplySdg(q) } -> std::same_as<void>;
+        { backend.ApplyI(q) } -> std::same_as<void>;
         { backend.ApplyX(q) } -> std::same_as<void>;
         { backend.ApplyZ(q) } -> std::same_as<void>;
+        { backend.ApplyY(q) } -> std::same_as<void>;
         { backend.ApplyCx(c, t) } -> std::same_as<void>;
+        { backend.ApplyCz(c, t) } -> std::same_as<void>;
+        { backend.ApplyCy(c, t) } -> std::same_as<void>;
         { const_backend.Print() } -> std::same_as<void>;
         { const_backend.MemoryUsage() } noexcept -> std::same_as<std::size_t>;
     };
@@ -91,6 +96,24 @@ class Simulator {
     }
 
     /**
+     * Apply an S† gate to qubit q.
+     * @param q Qubit index.
+     */
+    void Sdg(QubitSize q) {
+        CheckQubit(q);
+        backend_.ApplySdg(q);
+    }
+
+    /**
+     * Apply the identity gate to qubit q.
+     * @param q Qubit index.
+     */
+    void I(QubitSize q) {
+        CheckQubit(q);
+        backend_.ApplyI(q);
+    }
+
+    /**
      * Apply a Pauli X gate to qubit q.
      * @param q Qubit index.
      */
@@ -109,6 +132,15 @@ class Simulator {
     }
 
     /**
+     * Apply a Pauli Y gate to qubit q.
+     * @param q Qubit index.
+     */
+    void Y(QubitSize q) {
+        CheckQubit(q);
+        backend_.ApplyY(q);
+    }
+
+    /**
      * Apply a controlled X gate with control c and target t.
      * @param c Control qubit index.
      * @param t Target qubit index.
@@ -117,6 +149,28 @@ class Simulator {
         CheckQubit(c);
         CheckQubit(t);
         backend_.ApplyCx(c, t);
+    }
+
+    /**
+     * Apply a controlled Z gate with control c and target t.
+     * @param c Control qubit index.
+     * @param t Target qubit index.
+     */
+    void Cz(QubitSize c, QubitSize t) {
+        CheckQubit(c);
+        CheckQubit(t);
+        backend_.ApplyCz(c, t);
+    }
+
+    /**
+     * Apply a controlled Y gate with control c and target t.
+     * @param c Control qubit index.
+     * @param t Target qubit index.
+     */
+    void Cy(QubitSize c, QubitSize t) {
+        CheckQubit(c);
+        CheckQubit(t);
+        backend_.ApplyCy(c, t);
     }
 
     /**
