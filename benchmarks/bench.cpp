@@ -15,8 +15,7 @@
 #include <system_error>
 #include <vector>
 
-#include "stabaal/simulator.hpp"
-#include "stabaal/types.hpp"
+#include "stabaal.hpp"
 
 namespace {
 
