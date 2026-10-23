@@ -95,6 +95,18 @@ class InverseTableau {
     void ApplyS(QubitSize q) noexcept;
 
     /**
+     * Apply an S† gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplySdg(QubitSize q) noexcept;
+
+    /**
+     * Apply the identity gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplyI(QubitSize q) noexcept;
+
+    /**
      * Apply a Pauli X gate to qubit q.
      * @param q Qubit index.
      */
@@ -107,11 +119,31 @@ class InverseTableau {
     void ApplyZ(QubitSize q) noexcept;
 
     /**
+     * Apply a Pauli Y gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplyY(QubitSize q) noexcept;
+
+    /**
      * Apply a controlled X gate with control c and target t.
      * @param c Control qubit index.
      * @param t Target qubit index.
      */
     void ApplyCx(QubitSize c, QubitSize t) noexcept;
+
+    /**
+     * Apply a controlled Z gate with control c and target t.
+     * @param c Control qubit index.
+     * @param t Target qubit index.
+     */
+    void ApplyCz(QubitSize c, QubitSize t) noexcept;
+
+    /**
+     * Apply a controlled Y gate with control c and target t.
+     * @param c Control qubit index.
+     * @param t Target qubit index.
+     */
+    void ApplyCy(QubitSize c, QubitSize t) noexcept;
 
     /**
      * Print the active generators' X components, Z components, and signs to standard output.
