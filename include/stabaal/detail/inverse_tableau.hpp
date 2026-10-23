@@ -81,18 +81,36 @@ class InverseTableau {
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
     [[nodiscard]] bool MeasureZ(QubitSize q);
-    
-    bool IsDeterministicMeasureX(QubitIdx q);
-    bool IsDeterministicMeasureZ(QubitIdx q);
 
-    bool ForceMeasureX(QubitIdx q, bool measurement);
-    bool ForceMeasureZ(QubitIdx q, bool measurement);
+    /**
+     * Checks wether measuring qubit q in the X basis will be a deterministic measurement
+     * @param q Qubit index.
+     * @return The outcome: true if the measurement will be deterministic, false otherwise
+     */
+    bool IsDeterministicMeasureX(QubitSize q);
 
-    void ApplyH(QubitIdx q) noexcept;
-    void ApplyS(QubitIdx q) noexcept;
-    void ApplyX(QubitIdx q) noexcept;
-    void ApplyZ(QubitIdx q) noexcept;
-    void ApplyCx(QubitIdx c, QubitIdx t) noexcept;
+    /**
+     * Checks wether measuring qubit q in the Z basis will be a deterministic measurement
+     * @param q Qubit index.
+     * @return The outcome: true if the measurement will be deterministic, false otherwise
+     */
+    bool IsDeterministicMeasureZ(QubitSize q);
+
+    /**
+     * Forces a non-deterministic measurement in the X basis to have a certain outcome
+     * @param q Qubit index.
+     * @param measurement the desired outcome of the measurement.
+     * @return The outcome of the measurement
+     */
+    bool ForceMeasureX(QubitSize q, bool measurement);
+
+    /**
+     * Forces a non-deterministic measurement in the Z basis to have a certain outcome
+     * @param q Qubit index.
+     * @param measurement the desired outcome of the measurement.
+     * @return The outcome of the measurement
+     */
+    bool ForceMeasureZ(QubitSize q, bool measurement);
 
     /**
      * Apply a Hadamard gate to qubit q.
@@ -241,8 +259,22 @@ class InverseTableau {
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
     [[nodiscard]] bool Measure(QubitSize q, Basis basis);
-    [[nodiscard]] bool IsDeterministicMeasure(QubitIdx q, Basis basis);
-    bool ForceMeasure(QubitIdx q, bool measurement, Basis basis);
+
+    /**
+     * Checks wether measuring in the selected basis will be a deterministic measurement
+     * @param q Qubit index.
+     * @param basis the basis to measure in.
+     * @return the outcome: true if the measurement will be deterministic, false otherwise
+     */
+    [[nodiscard]] bool IsDeterministicMeasure(QubitSize q, Basis basis);
+
+    /**
+     * Forces a non-deterministic measurement in the selected basis to have a deterministic outcome
+     * @param q Qubit index.
+     * @param basis the basis to measure in.
+     * @return the ourcome of the measurement
+     */
+    bool ForceMeasure(QubitSize q, bool measurement, Basis basis);
 
     /**
      * Apply measurement cleanup to every active generator and update their signs.
