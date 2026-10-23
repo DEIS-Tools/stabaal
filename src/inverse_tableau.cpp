@@ -163,7 +163,6 @@ QubitSize InverseTableau::NumQubits() const noexcept { return num_qubits_; }
 
 void InverseTableau::Add() {
     assert(num_qubits_ < std::numeric_limits<QubitSize>::max());
-
     if (num_qubits_ == capacity_) {
         const auto growth{std::max(capacity_ / kGrowthDivisor, QubitSize{1})};
         const auto extra{std::min(growth, std::numeric_limits<QubitSize>::max() - capacity_)};
@@ -175,6 +174,7 @@ void InverseTableau::Add() {
         grown.num_qubits_ = num_qubits_;
         *this = std::move(grown);
     }
+    
     const auto last{num_qubits_++};
     Generator(last, Basis::kComputational).SetZ(last);
     Generator(last, Basis::kHadamard).SetX(last);
