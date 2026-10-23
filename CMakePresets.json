@@ -9,7 +9,6 @@
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INTERPROCEDURAL_OPTIMIZATION": false,
         "CMAKE_EXPORT_COMPILE_COMMANDS": true,
-        "CMAKE_CXX_SCAN_FOR_MODULES": false,
         "BUILD_TESTING": false
       }
     },
@@ -19,13 +18,6 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_INTERPROCEDURAL_OPTIMIZATION": true
-      }
-    },
-    {
-      "name": "python",
-      "inherits": "release",
-      "cacheVariables": {
-        "BUILD_PYTHON_BINDINGS": true
       }
     },
     {
@@ -49,7 +41,6 @@
   "buildPresets": [
     { "name": "debug", "configurePreset": "debug" },
     { "name": "release", "configurePreset": "release" },
-    { "name": "python", "configurePreset": "python", "targets": ["stabaal_python"] },
     { "name": "profile", "configurePreset": "profile" },
     { "name": "test", "configurePreset": "test" }
   ],
@@ -66,13 +57,6 @@
       "steps": [
         { "type": "configure", "name": "release" },
         { "type": "build", "name": "release" }
-      ]
-    },
-    {
-      "name": "python",
-      "steps": [
-        { "type": "configure", "name": "python" },
-        { "type": "build", "name": "python" }
       ]
     },
     {
