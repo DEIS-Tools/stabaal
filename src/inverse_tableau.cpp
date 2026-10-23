@@ -239,22 +239,16 @@ bool InverseTableau::Measure(const QubitSize q, const Basis basis) {
 }
 
 bool InverseTableau::IsDeterministicMeasureZ(const QubitIdx q) {
-    if (q >= num_qubits_) [[unlikely]] {
-        throw std::out_of_range{"Qubit index out of range"};
-    }
-
-    if (computational_.gens[q].AnyX()) {
+    assert(q < num_qubits_);
+    if (Generator(q, Basis::kComputational).AnyX(num_qubits_)) {
         return 0;
     }
     return 1;
 }
 
 bool InverseTableau::IsDeterministicMeasureX(const QubitIdx q){
-    if (q >= num_qubits_) [[unlikely]] {
-        throw std::out_of_range{"Qubit index out of range"};
-    }
-    
-    if (hadamard_.gens[q].AnyX()) {
+    assert(q < num_qubits_);
+    if (Generator(q, Basis::kHadamard).AnyX(num_qubits_)) {
         return 0;
     }
     return 1;
@@ -275,8 +269,8 @@ bool InverseTableau::ForceMeasureZ(const QubitIdx q, const bool measurement){
         throw std::logic_error("This qubit provides a deterministic measurement");
     }
     
-    const auto& table{computational_};
-    const auto& gen{table.gens[q]};
+    Basis b = Basis::kComputational;
+    const auto gen{Generator(q, b)};
     QubitIdx pivot{0};
 
     for (QubitIdx i{0}; i < num_qubits_; ++i) {
@@ -286,9 +280,19 @@ bool InverseTableau::ForceMeasureZ(const QubitIdx q, const bool measurement){
         }
     }
 
-    CleanUp(pivot, gen);
+    const auto num_words{WordCount(num_qubits_)};
+    std::array<BitWord, kStackTargetWords> local_targets{};
+    std::vector<BitWord> heap_targets(num_words > local_targets.size() ? num_words : 0);
+    const BitWordSpan targets{heap_targets.empty() ? local_targets.data() : heap_targets.data(),
+                              num_words};
+    const bool apply_s_dagger{gen.MeasurementTargets(pivot, targets)};
+    if (apply_s_dagger ||
+        std::any_of(targets.begin(), targets.end(), [](const auto word) { return word != 0; })) {
+        CleanUp(pivot, targets, apply_s_dagger);
+    }
+
     Collapse(pivot, measurement);
-    return table.signs.Get(q);
+    return Sign(q, b);
 }
 
 bool InverseTableau::ForceMeasureX(const QubitIdx q, const bool measurement){
@@ -301,8 +305,8 @@ bool InverseTableau::ForceMeasureX(const QubitIdx q, const bool measurement){
         throw std::logic_error("This qubit provides a deterministic measurement");
     }
     
-    const auto& table{hadamard_};
-    const auto& gen{table.gens[q]};
+    Basis b = Basis::kHadamard;
+    const auto gen{Generator(q, b)};
     QubitIdx pivot{0};
 
     for (QubitIdx i{0}; i < num_qubits_; ++i) {
@@ -312,9 +316,19 @@ bool InverseTableau::ForceMeasureX(const QubitIdx q, const bool measurement){
         }
     }
 
-    CleanUp(pivot, gen);
+    const auto num_words{WordCount(num_qubits_)};
+    std::array<BitWord, kStackTargetWords> local_targets{};
+    std::vector<BitWord> heap_targets(num_words > local_targets.size() ? num_words : 0);
+    const BitWordSpan targets{heap_targets.empty() ? local_targets.data() : heap_targets.data(),
+                              num_words};
+    const bool apply_s_dagger{gen.MeasurementTargets(pivot, targets)};
+    if (apply_s_dagger ||
+        std::any_of(targets.begin(), targets.end(), [](const auto word) { return word != 0; })) {
+        CleanUp(pivot, targets, apply_s_dagger);
+    }
+
     Collapse(pivot, measurement);
-    return table.signs.Get(q);
+    return Sign(q, b);
 }
 
 void InverseTableau::ApplyH(const QubitIdx q) noexcept {
