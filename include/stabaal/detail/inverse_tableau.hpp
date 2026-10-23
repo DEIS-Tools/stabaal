@@ -127,12 +127,20 @@ class InverseTableau {
 
    private:
     std::unique_ptr<BitWord[]> words_;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
+
+    /**
+     * Number of qubits in the tableau.
+     */
     QubitSize num_qubits_;
+
+    /**
+     * Number of qubits the tableau can currently hold.
+     */
     QubitSize capacity_;
 
     /**
      * Return the total word count for generator components and flags at the given capacity.
-     * @param capacity Number of qubits to reserve space for.
+     * @param capacity Number of qubits the tableau can hold currently.
      * @return Total number of words required for components and flags.
      */
     [[nodiscard]] static std::size_t NumWords(QubitSize capacity) noexcept;
