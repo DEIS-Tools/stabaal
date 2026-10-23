@@ -255,10 +255,8 @@ TEST_CASE("CZ and CY apply the target Pauli only when the control is one", "[sim
     if (negative) sim.X(t);
     if (basis != 0) sim.H(t);
     if (basis == 2) sim.S(t);
-    if (cy)
-        sim.Cy(c, t);
-    else
-        sim.Cz(c, t);
+    if (cy) sim.Cy(c, t);
+    else sim.Cz(c, t);
     if (basis == 2) {
         sim.S(t);
         sim.Z(t);
@@ -429,20 +427,16 @@ TEST_CASE("Growing tableaus preserve row swaps and copies discard spare capacity
         CHECK(copy.MemoryUsage() == exact.MemoryUsage());
         CHECK(assigned.MemoryUsage() == exact.MemoryUsage());
         CHECK(copy.MemoryUsage() <= original.MemoryUsage());
-        if (q % 2 != 0)
-            original.ApplyZ(q);
-        else
-            original.ApplyX(q);
+        if (q % 2 != 0) original.ApplyZ(q);
+        else original.ApplyX(q);
         const auto outcome{q % 2 != 0 ? original.MeasureX(q) : original.MeasureZ(q)};
         CHECK(outcome != (q % 3 == 0));
         for (QubitSize i{0}; i <= q; ++i) {
             CHECK((i % 2 != 0 ? copy.MeasureX(i) : copy.MeasureZ(i)) == (i % 3 == 0));
             CHECK((i % 2 != 0 ? assigned.MeasureX(i) : assigned.MeasureZ(i)) == (i % 3 == 0));
         }
-        if (q % 2 != 0)
-            original.ApplyZ(q);
-        else
-            original.ApplyX(q);
+        if (q % 2 != 0) original.ApplyZ(q);
+        else original.ApplyX(q);
         copy.Add();
         CHECK_FALSE(copy.MeasureZ(q + 1));
     }
