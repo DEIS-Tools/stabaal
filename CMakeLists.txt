@@ -56,3 +56,10 @@ if(BUILD_TESTING)
     include(Catch)
     catch_discover_tests(stabaal_tests)
 endif()
+
+foreach(target IN ITEMS stabaal stabaal_bench stabaal_python stabaal_tests)
+    if(TARGET ${target})
+        target_compile_options(${target} PRIVATE
+            "$<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>")
+    endif()
+endforeach()

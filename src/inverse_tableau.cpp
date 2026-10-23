@@ -264,6 +264,24 @@ void InverseTableau::ApplyS(const QubitSize q) noexcept {
     SetBit(hadamard_signs, q, Phase(exponent, hadamard_sign, computational_sign, 3));
 }
 
+void InverseTableau::ApplySdg(QubitSize q) noexcept {
+    assert(q < num_qubits_);
+
+    const auto computational{PhysicalBasis(q, Basis::kComputational)};
+    const auto hadamard{computational ^ 1U};
+    const auto computational_signs{Flags(computational)};
+    const auto hadamard_signs{Flags(hadamard)};
+    const bool computational_sign{GetBit(computational_signs, q)};
+    const bool hadamard_sign{GetBit(hadamard_signs, q)};
+    const auto exponent{
+        PhysicalGenerator(q, hadamard)
+            .XorWithPhase(PhysicalGenerator(q, computational), num_qubits_),
+    };
+    SetBit(hadamard_signs, q, Phase(exponent, hadamard_sign, computational_sign, 1));
+}
+
+void InverseTableau::ApplyI([[maybe_unused]] const QubitSize q) noexcept {}
+
 void InverseTableau::ApplyX(const QubitSize q) noexcept {
     assert(q < num_qubits_);
 
@@ -274,6 +292,13 @@ void InverseTableau::ApplyZ(const QubitSize q) noexcept {
     assert(q < num_qubits_);
 
     FlipSign(q, Basis::kHadamard);
+}
+
+void InverseTableau::ApplyY(const QubitSize q) noexcept {
+    // We dont need to check swap flags so no need to look those up.
+    // Equivalent to ApplyX(q); ApplyZ(q);
+    FlipBit(Flags(0), q);
+    FlipBit(Flags(1), q);
 }
 
 void InverseTableau::ApplyCx(const QubitSize c, const QubitSize t) noexcept {
@@ -304,6 +329,18 @@ void InverseTableau::ApplyCx(const QubitSize c, const QubitSize t) noexcept {
     };
     SetBit(t_computational_signs, t,
            Phase(computational_phase, t_computational_sign, c_computational_sign, 0));
+}
+
+void InverseTableau::ApplyCz(const QubitSize c, const QubitSize t) noexcept {
+    ApplyH(t);
+    ApplyCx(c, t);
+    ApplyH(t);
+}
+
+void InverseTableau::ApplyCy(const QubitSize c, const QubitSize t) noexcept {
+    ApplySdg(t);
+    ApplyCx(c, t);
+    ApplyS(t);
 }
 
 std::size_t InverseTableau::MemoryUsage() const noexcept {
