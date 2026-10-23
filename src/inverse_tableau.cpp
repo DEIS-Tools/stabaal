@@ -174,7 +174,7 @@ void InverseTableau::Add() {
         grown.num_qubits_ = num_qubits_;
         *this = std::move(grown);
     }
-    
+
     const auto last{num_qubits_++};
     Generator(last, Basis::kComputational).SetZ(last);
     Generator(last, Basis::kHadamard).SetX(last);
