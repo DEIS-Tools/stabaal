@@ -376,8 +376,8 @@ TEST_CASE("GHZ measurement parity preserves phases across word boundaries",
 TEST_CASE("IsDeterministicMeasureZ returns true for 0 and 1 ket") {
     InverseTableau tableau{2};
     tableau.ApplyX(1);
-    CHECK(tableau.IsDeterministicMeasureZ(0) == 1);
-    CHECK(tableau.IsDeterministicMeasureZ(1) == 1);
+    CHECK(tableau.IsDeterministicMeasureZ(0) == true);
+    CHECK(tableau.IsDeterministicMeasureZ(1) == true);
 }
 
 TEST_CASE("IsDeterministicMeasureX returns true for + and - ket") {
@@ -385,18 +385,18 @@ TEST_CASE("IsDeterministicMeasureX returns true for + and - ket") {
     tableau.ApplyX(1);
     tableau.ApplyH(0);
     tableau.ApplyH(1);
-    CHECK(tableau.IsDeterministicMeasureX(0) == 1);
-    CHECK(tableau.IsDeterministicMeasureX(1) == 1);
+    CHECK(tableau.IsDeterministicMeasureX(0) == true);
+    CHECK(tableau.IsDeterministicMeasureX(1) == true);
 }
 
 TEST_CASE("IsDeterministicMeasureZ works when measuring bell pair") {
     InverseTableau tableau{2};
     tableau.ApplyH(0);
     tableau.ApplyCx(0, 1);
-    CHECK(tableau.IsDeterministicMeasureZ(0) == 0);
-    CHECK(tableau.IsDeterministicMeasureZ(1) == 0);
+    CHECK_FALSE(tableau.IsDeterministicMeasureZ(0));
+    CHECK_FALSE(tableau.IsDeterministicMeasureZ(1));
     tableau.MeasureZ(0);
-    CHECK(tableau.IsDeterministicMeasureZ(1) == 1);
+    CHECK(tableau.IsDeterministicMeasureZ(1));
 }
 
 TEST_CASE("ForceMeasureZ works correctly") {
@@ -416,17 +416,5 @@ TEST_CASE("ForceMeasureX works correctly") {
         CHECK(tableau.ForceMeasureX(1, 0) == 0);
     }
 }
-
-TEST_CASE("ForceMeasureZ throws error when used with deterministic measurement") {
-    InverseTableau tableau{1};
-    CHECK_THROWS_AS(tableau.ForceMeasureZ(0, 1), std::logic_error);
-}
-
-TEST_CASE("ForceMeasureX throws error when used with deterministic measurement") {
-    InverseTableau tableau{1};
-    tableau.ApplyH(0);
-    CHECK_THROWS_AS(tableau.ForceMeasureX(0, 1), std::logic_error);
-}
-
 
 }  // namespace stabaal::detail
