@@ -19,3 +19,7 @@ lint:
 
 format:
 	clang-format -i $(FORMAT_FILES)
+
+test:
+	cmake --workflow --preset $@
+	build/test/stabaal_tests

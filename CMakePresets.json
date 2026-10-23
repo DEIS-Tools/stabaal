@@ -29,6 +29,13 @@
       }
     },
     {
+      "name": "test",
+      "inherits": "debug",
+      "cacheVariables": {
+        "BUILD_TESTING": true
+      }
+    },
+    {
       "name": "profile",
       "inherits": "release",
       "cacheVariables": {
@@ -43,7 +50,8 @@
     { "name": "debug", "configurePreset": "debug" },
     { "name": "release", "configurePreset": "release" },
     { "name": "python", "configurePreset": "python", "targets": ["stabaal_python"] },
-    { "name": "profile", "configurePreset": "profile" }
+    { "name": "profile", "configurePreset": "profile" },
+    { "name": "test", "configurePreset": "test" }
   ],
   "workflowPresets": [
     {
@@ -72,6 +80,13 @@
       "steps": [
         { "type": "configure", "name": "profile" },
         { "type": "build", "name": "profile" }
+      ]
+    },
+    {
+      "name": "test",
+      "steps": [
+        { "type": "configure", "name": "test" },
+        { "type": "build", "name": "test" }
       ]
     }
   ]
