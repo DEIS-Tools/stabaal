@@ -241,6 +241,8 @@ class InverseTableau {
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
     [[nodiscard]] bool Measure(QubitSize q, Basis basis);
+    [[nodiscard]] bool IsDeterministicMeasure(QubitIdx q, Basis basis);
+    bool ForceMeasure(QubitIdx q, bool measurement, Basis basis);
 
     /**
      * Apply measurement cleanup to every active generator and update their signs.
