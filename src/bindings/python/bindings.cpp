@@ -1,4 +1,5 @@
 #include <pybind11/cast.h>
+#include <pybind11/iostream.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 
@@ -28,8 +29,23 @@ PYBIND11_MODULE(stabaal, m) {
                        .def("measure_z", &InverseSim::MeasureZ, py::arg("q"),
                             "Measure qubit q in computational basis.")
                        .def("print", &InverseSim::Print, "Print the backend's tableau to stdout.")
+                       .def(
+                           "__repr__",
+                           [](const InverseSim& sim) {
+                               auto output = py::module_::import("io").attr("StringIO")();
+                               {
+                                   py::scoped_ostream_redirect redirect(std::cout, output);
+                                   sim.Print();
+                               }
+                               return output.attr("getvalue")().cast<std::string>();
+                           },
+                           "Print the backend's tableau to stdout")
                        .def("memory_usage", &InverseSim::MemoryUsage,
                             "Return the simulator's memory usage in bytes.");
+
+    m.def(
+        "Simulator", [](stabaal::QubitSize num_qubits) { return InverseSim(num_qubits); },
+        py::arg("num_qubits"), "Create a simulator using the default inverse tableau backend.");
 
     m.def(
         "Simulator",
