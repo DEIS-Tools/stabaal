@@ -25,11 +25,11 @@ constexpr std::size_t kPauliComponents{2};
 constexpr std::size_t kSwapFlags{kBasisCount};
 constexpr std::size_t kFlagArrays{kBasisCount + 1};
 constexpr std::size_t kStackTargetWords{16};
-constexpr QubitIdx kGrowthDivisor{4};
+constexpr QubitSize kGrowthDivisor{4};
 
-// The complete QubitIdx range needs up to twice its bit width for storage sizes.
+// The complete QubitSize range needs up to twice its bit width for storage sizes.
 static_assert(std::numeric_limits<std::size_t>::digits >=
-              2 * std::numeric_limits<QubitIdx>::digits);
+              2 * std::numeric_limits<QubitSize>::digits);
 
 [[nodiscard]] std::mt19937& RandomEngine() {
     static thread_local std::mt19937 engine{std::random_device{}()};
@@ -46,7 +46,7 @@ static_assert(std::numeric_limits<std::size_t>::digits >=
 
 }  // namespace
 
-std::size_t InverseTableau::NumWords(const QubitIdx capacity) noexcept {
+std::size_t InverseTableau::NumWords(const QubitSize capacity) noexcept {
     return (std::size_t{4} * capacity + kFlagArrays) * WordCount(capacity);
 }
 
@@ -68,37 +68,39 @@ ConstBitWordSpan InverseTableau::Flags(const std::size_t index) const noexcept {
     return RowWords(std::size_t{4} * capacity_ + index);
 }
 
-std::size_t InverseTableau::PhysicalBasis(const QubitIdx q, const Basis basis) const noexcept {
-    const auto swapped{static_cast<std::size_t>(GetBit(Flags(kSwapFlags), q))};
+std::size_t InverseTableau::PhysicalBasis(const QubitSize generator_index,
+                                          const Basis basis) const noexcept {
+    const auto swapped{static_cast<std::size_t>(GetBit(Flags(kSwapFlags), generator_index))};
     return static_cast<std::size_t>(basis) ^ swapped;
 }
 
-PauliStringView InverseTableau::Generator(const QubitIdx q, const Basis basis) noexcept {
-    return PhysicalGenerator(q, PhysicalBasis(q, basis));
+PauliStringView InverseTableau::Generator(const QubitSize generator_index,
+                                          const Basis basis) noexcept {
+    return PhysicalGenerator(generator_index, PhysicalBasis(generator_index, basis));
 }
 
-PauliStringView InverseTableau::PhysicalGenerator(const QubitIdx q,
+PauliStringView InverseTableau::PhysicalGenerator(const QubitSize generator_index,
                                                   const std::size_t basis) noexcept {
-    const auto row{kPauliComponents * (basis * capacity_ + q)};
+    const auto row{kPauliComponents * (basis * capacity_ + generator_index)};
     return {RowWords(row), RowWords(row + 1)};
 }
 
-bool InverseTableau::Sign(const QubitIdx q, const Basis basis) const noexcept {
-    return GetBit(Flags(PhysicalBasis(q, basis)), q);
+bool InverseTableau::Sign(const QubitSize generator_index, const Basis basis) const noexcept {
+    return GetBit(Flags(PhysicalBasis(generator_index, basis)), generator_index);
 }
 
-void InverseTableau::FlipSign(const QubitIdx q, const Basis basis) noexcept {
-    FlipBit(Flags(PhysicalBasis(q, basis)), q);
+void InverseTableau::FlipSign(const QubitSize generator_index, const Basis basis) noexcept {
+    FlipBit(Flags(PhysicalBasis(generator_index, basis)), generator_index);
 }
 
-InverseTableau::InverseTableau(const QubitIdx num_qubits)
+InverseTableau::InverseTableau(const QubitSize num_qubits)
     : words_{
           // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
           num_qubits == 0 ? nullptr : std::make_unique<BitWord[]>(NumWords(num_qubits)),
       },
       num_qubits_{num_qubits},
       capacity_{num_qubits} {
-    for (QubitIdx i{0}; i < num_qubits; ++i) {
+    for (QubitSize i{0}; i < num_qubits; ++i) {
         Generator(i, Basis::kComputational).SetZ(i);
         Generator(i, Basis::kHadamard).SetX(i);
     }
@@ -113,12 +115,15 @@ void InverseTableau::CopyRows(const InverseTableau& other) noexcept {
     }
 
     for (std::size_t basis{0}; basis < kBasisCount; ++basis) {
-        for (QubitIdx q{0}; q < other.num_qubits_; ++q) {
+        for (QubitSize generator_index{0}; generator_index < other.num_qubits_; ++generator_index) {
             for (std::size_t axis{0}; axis < kPauliComponents; ++axis) {
                 const auto source{
-                    other.RowWords(kPauliComponents * (basis * other.capacity_ + q) + axis),
+                    other.RowWords(kPauliComponents * (basis * other.capacity_ + generator_index) +
+                                   axis),
                 };
-                const auto target{RowWords(kPauliComponents * (basis * capacity_ + q) + axis)};
+                const auto target{
+                    RowWords(kPauliComponents * (basis * capacity_ + generator_index) + axis),
+                };
                 std::copy_n(source.data(), used_words, target.data());
             }
         }
@@ -154,12 +159,13 @@ InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
     return *this;
 }
 
-void InverseTableau::Add() {
-    assert(num_qubits_ < std::numeric_limits<QubitIdx>::max());
+QubitSize InverseTableau::NumQubits() const noexcept { return num_qubits_; }
 
+void InverseTableau::Add() {
+    assert(num_qubits_ < std::numeric_limits<QubitSize>::max());
     if (num_qubits_ == capacity_) {
-        const auto growth{std::max(capacity_ / kGrowthDivisor, QubitIdx{1})};
-        const auto extra{std::min(growth, std::numeric_limits<QubitIdx>::max() - capacity_)};
+        const auto growth{std::max(capacity_ / kGrowthDivisor, QubitSize{1})};
+        const auto extra{std::min(growth, std::numeric_limits<QubitSize>::max() - capacity_)};
         InverseTableau grown{0};
         grown.capacity_ = capacity_ + extra;
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
@@ -168,42 +174,43 @@ void InverseTableau::Add() {
         grown.num_qubits_ = num_qubits_;
         *this = std::move(grown);
     }
+
     const auto last{num_qubits_++};
     Generator(last, Basis::kComputational).SetZ(last);
     Generator(last, Basis::kHadamard).SetX(last);
 }
 
-void InverseTableau::CleanUp(const QubitIdx pivot, const ConstBitWordSpan targets,
+void InverseTableau::CleanUp(const QubitSize pivot, const ConstBitWordSpan targets,
                              const bool apply_s_dagger) noexcept {
     for (std::size_t basis{0}; basis < kBasisCount; ++basis) {
         const auto signs{Flags(basis)};
-        for (QubitIdx q{0}; q < num_qubits_; ++q) {
-            const auto row{kPauliComponents * (basis * capacity_ + q)};
+        for (QubitSize generator_index{0}; generator_index < num_qubits_; ++generator_index) {
+            const auto row{kPauliComponents * (basis * capacity_ + generator_index)};
             PauliStringView gen{RowWords(row), RowWords(row + 1)};
             const bool flip{gen.CleanUp(pivot, targets, apply_s_dagger)};
-            FlipBit(signs, q, flip);
+            FlipBit(signs, generator_index, flip);
         }
     }
 }
 
-void InverseTableau::Collapse(const QubitIdx pivot, const bool p) noexcept {
+void InverseTableau::Collapse(const QubitSize pivot, const bool p) noexcept {
     for (std::size_t basis{0}; basis < kBasisCount; ++basis) {
         const auto signs{Flags(basis)};
-        for (QubitIdx q{0}; q < num_qubits_; ++q) {
-            const auto row{kPauliComponents * (basis * capacity_ + q)};
+        for (QubitSize generator_index{0}; generator_index < num_qubits_; ++generator_index) {
+            const auto row{kPauliComponents * (basis * capacity_ + generator_index)};
             PauliStringView gen{RowWords(row), RowWords(row + 1)};
             gen.SwapXZ(pivot);
             const bool flip{gen.GetZ(pivot) && (p != gen.GetX(pivot))};
-            FlipBit(signs, q, flip);
+            FlipBit(signs, generator_index, flip);
         }
     }
 }
 
-bool InverseTableau::RandomMeasurement(const QubitIdx q, const Basis b) {
+bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b) {
     const auto gen{Generator(q, b)};
-    QubitIdx pivot{0};
+    QubitSize pivot{0};
 
-    for (QubitIdx i{0}; i < num_qubits_; ++i) {
+    for (QubitSize i{0}; i < num_qubits_; ++i) {
         if (gen.GetX(i)) {
             pivot = i;
             break;
@@ -226,22 +233,22 @@ bool InverseTableau::RandomMeasurement(const QubitIdx q, const Basis b) {
     return Sign(q, b);
 }
 
-bool InverseTableau::Measure(const QubitIdx q, const Basis basis) {
+bool InverseTableau::Measure(const QubitSize q, const Basis basis) {
     assert(q < num_qubits_);
     return Generator(q, basis).AnyX(num_qubits_) ? RandomMeasurement(q, basis) : Sign(q, basis);
 }
 
-bool InverseTableau::MeasureX(const QubitIdx q) { return Measure(q, Basis::kHadamard); }
+bool InverseTableau::MeasureX(const QubitSize q) { return Measure(q, Basis::kHadamard); }
 
-bool InverseTableau::MeasureZ(const QubitIdx q) { return Measure(q, Basis::kComputational); }
+bool InverseTableau::MeasureZ(const QubitSize q) { return Measure(q, Basis::kComputational); }
 
-void InverseTableau::ApplyH(const QubitIdx q) noexcept {
+void InverseTableau::ApplyH(const QubitSize q) noexcept {
     assert(q < num_qubits_);
 
     FlipBit(Flags(kSwapFlags), q);
 }
 
-void InverseTableau::ApplyS(const QubitIdx q) noexcept {
+void InverseTableau::ApplyS(const QubitSize q) noexcept {
     assert(q < num_qubits_);
 
     const auto computational{PhysicalBasis(q, Basis::kComputational)};
@@ -257,19 +264,19 @@ void InverseTableau::ApplyS(const QubitIdx q) noexcept {
     SetBit(hadamard_signs, q, Phase(exponent, hadamard_sign, computational_sign, 3));
 }
 
-void InverseTableau::ApplyX(const QubitIdx q) noexcept {
+void InverseTableau::ApplyX(const QubitSize q) noexcept {
     assert(q < num_qubits_);
 
     FlipSign(q, Basis::kComputational);
 }
 
-void InverseTableau::ApplyZ(const QubitIdx q) noexcept {
+void InverseTableau::ApplyZ(const QubitSize q) noexcept {
     assert(q < num_qubits_);
 
     FlipSign(q, Basis::kHadamard);
 }
 
-void InverseTableau::ApplyCx(const QubitIdx c, const QubitIdx t) noexcept {
+void InverseTableau::ApplyCx(const QubitSize c, const QubitSize t) noexcept {
     assert(c < num_qubits_);
     assert(t < num_qubits_);
 
@@ -316,18 +323,21 @@ void InverseTableau::Print() const {
 
     for (const auto basis : {Basis::kHadamard, Basis::kComputational}) {
         const char* const label{basis == Basis::kHadamard ? "X" : "Z"};
-        for (QubitIdx i{0}; i < num_qubits_; ++i) {
-            std::cout << "\n" << label << i << ": | ";
-            const auto row{kPauliComponents * (PhysicalBasis(i, basis) * capacity_ + i)};
+        for (QubitSize generator_index{0}; generator_index < num_qubits_; ++generator_index) {
+            std::cout << "\n" << label << generator_index << ": | ";
+            const auto row{
+                kPauliComponents *
+                    (PhysicalBasis(generator_index, basis) * capacity_ + generator_index),
+            };
             for (std::size_t axis{0}; axis < kPauliComponents; ++axis) {
                 const auto bits{RowWords(row + axis)};
-                for (QubitIdx j{0}; j < num_qubits_; ++j) {
+                for (QubitSize j{0}; j < num_qubits_; ++j) {
                     std::cout << ((bits[j / kBitsPerWord] >> (j % kBitsPerWord)) & 1U)
                               << (j == num_qubits_ - 1 ? " | " : " ");
                 }
             }
 
-            std::cout << Sign(i, basis) << " |";
+            std::cout << Sign(generator_index, basis) << " |";
         }
     }
 

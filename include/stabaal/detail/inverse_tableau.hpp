@@ -10,6 +10,9 @@
 
 namespace stabaal::detail {
 
+/**
+ * Simulate Clifford gates and Pauli measurements using an inverse stabilizer tableau.
+ */
 class InverseTableau {
    public:
     enum class Basis : std::uint8_t {
@@ -17,53 +20,239 @@ class InverseTableau {
         kHadamard,
     };
 
-    explicit InverseTableau(QubitIdx num_qubits);
+    /**
+     * Create a tableau with num_qubits qubits initialized to |0>^num_qubits.
+     * @param num_qubits Number of qubits.
+     */
+    explicit InverseTableau(QubitSize num_qubits);
 
+    /**
+     * Copy the state into independent storage.
+     * @param other Source tableau.
+     */
     InverseTableau(const InverseTableau& other);
+
+    /**
+     * Replace this state with an independent copy of other.
+     * @param other Source tableau.
+     * @return A reference to this tableau.
+     */
     InverseTableau& operator=(const InverseTableau& other);
+
+    /**
+     * Take ownership of other's tableau storage.
+     * @param other Tableau whose storage is transferred.
+     */
     InverseTableau(InverseTableau&& other) noexcept = default;
+
+    /**
+     * Replace this tableau by taking ownership of other's storage.
+     * @param other Tableau whose storage is transferred.
+     * @return A reference to this tableau.
+     */
     InverseTableau& operator=(InverseTableau&& other) noexcept = default;
+
+    /**
+     * Release the tableau storage.
+     */
     ~InverseTableau() noexcept = default;
 
-    [[nodiscard]] QubitIdx NumQubits() const noexcept { return num_qubits_; }
+    /**
+     * Return the number of active qubits.
+     * @return Number of active qubits.
+     */
+    [[nodiscard]] QubitSize NumQubits() const noexcept;
 
+    /**
+     * Append a qubit initialized to |0>, growing storage if needed geometrically.
+     */
     void Add();
 
-    [[nodiscard]] bool MeasureX(QubitIdx q);
-    [[nodiscard]] bool MeasureZ(QubitIdx q);
+    /**
+     * Measure qubit q in the X basis and update the state to match the outcome.
+     * @param q Qubit index.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    [[nodiscard]] bool MeasureX(QubitSize q);
 
-    void ApplyH(QubitIdx q) noexcept;
-    void ApplyS(QubitIdx q) noexcept;
-    void ApplyX(QubitIdx q) noexcept;
-    void ApplyZ(QubitIdx q) noexcept;
-    void ApplyCx(QubitIdx c, QubitIdx t) noexcept;
+    /**
+     * Measure qubit q in the Z basis and update the state to match the outcome.
+     * @param q Qubit index.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    [[nodiscard]] bool MeasureZ(QubitSize q);
 
+    /**
+     * Apply a Hadamard gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplyH(QubitSize q) noexcept;
+
+    /**
+     * Apply an S phase gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplyS(QubitSize q) noexcept;
+
+    /**
+     * Apply a Pauli X gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplyX(QubitSize q) noexcept;
+
+    /**
+     * Apply a Pauli Z gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplyZ(QubitSize q) noexcept;
+
+    /**
+     * Apply a controlled X gate with control c and target t.
+     * @param c Control qubit index.
+     * @param t Target qubit index.
+     */
+    void ApplyCx(QubitSize c, QubitSize t) noexcept;
+
+    /**
+     * Print the active generators' X components, Z components, and signs to standard output.
+     */
     void Print() const;
 
+    /**
+     * Return the bytes used by this object and its allocated tableau, including spare capacity.
+     * Excludes allocator overhead and temporary measurement storage.
+     * @return Memory usage in bytes.
+     */
     [[nodiscard]] std::size_t MemoryUsage() const noexcept;
 
    private:
     std::unique_ptr<BitWord[]> words_;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
-    QubitIdx num_qubits_;
-    QubitIdx capacity_;
 
-    [[nodiscard]] static std::size_t NumWords(QubitIdx capacity) noexcept;
+    /**
+     * Number of qubits in the tableau.
+     */
+    QubitSize num_qubits_;
+
+    /**
+     * Number of qubits the tableau can currently hold.
+     */
+    QubitSize capacity_;
+
+    /**
+     * Return the total word count for generator components and flags at the given capacity.
+     * @param capacity Number of qubits the tableau can hold currently.
+     * @return Total number of words required for components and flags.
+     */
+    [[nodiscard]] static std::size_t NumWords(QubitSize capacity) noexcept;
+
+    /**
+     * Return a writable view of packed bits in a row.
+     * @param row Row index.
+     * @return A view of the selected row, including spare capacity.
+     */
     [[nodiscard]] BitWordSpan RowWords(std::size_t row) noexcept;
+
+    /**
+     * Return a read-only view of packed bits in a row.
+     * @param row Row index.
+     * @return A view of the selected row, including spare capacity.
+     */
     [[nodiscard]] ConstBitWordSpan RowWords(std::size_t row) const noexcept;
+
+    /**
+     * Return a writable view of packed flags.
+     * @param index Storage group: 0 or 1 for signs, 2 for swap flags.
+     * @return A view of the selected packed flags.
+     */
     [[nodiscard]] BitWordSpan Flags(std::size_t index) noexcept;
+
+    /**
+     * Return a read-only view of packed flags.
+     * @param index Storage group: 0 or 1 for signs, 2 for swap flags.
+     * @return A view of the selected packed flags.
+     */
     [[nodiscard]] ConstBitWordSpan Flags(std::size_t index) const noexcept;
-    [[nodiscard]] std::size_t PhysicalBasis(QubitIdx q, Basis basis) const noexcept;
-    [[nodiscard]] PauliStringView Generator(QubitIdx q, Basis basis) noexcept;
-    [[nodiscard]] PauliStringView PhysicalGenerator(QubitIdx q, std::size_t basis) noexcept;
-    [[nodiscard]] bool Sign(QubitIdx q, Basis basis) const noexcept;
-    void FlipSign(QubitIdx q, Basis basis) noexcept;
+
+    /**
+     * Return storage group 0 or 1 for the requested generator and basis, accounting for basis
+     * swaps.
+     * @param generator_index Generator number.
+     * @param basis Generator basis.
+     * @return Storage group index, either 0 or 1.
+     */
+    [[nodiscard]] std::size_t PhysicalBasis(QubitSize generator_index, Basis basis) const noexcept;
+
+    /**
+     * Return a writable view of the selected generator, accounting for basis swaps.
+     * @param generator_index Generator number.
+     * @param basis Basis to get generator in.
+     * @return A writable view of the generator's X and Z components.
+     */
+    [[nodiscard]] PauliStringView Generator(QubitSize generator_index, Basis basis) noexcept;
+
+    /**
+     * Return a writable view of the selected generator, not accounting for basis swaps.
+     * @param generator_index Generator number.
+     * @param basis Basis to get generator in.
+     * @return A writable view of the stored generator's components.
+     */
+    [[nodiscard]] PauliStringView PhysicalGenerator(QubitSize generator_index,
+                                                    std::size_t basis) noexcept;
+
+    /**
+     * Return the selected generator's sign: false for +, true for -.
+     * @param generator_index Generator number.
+     * @param basis Generator basis.
+     * @return The sign: false for positive, true for negative.
+     */
+    [[nodiscard]] bool Sign(QubitSize generator_index, Basis basis) const noexcept;
+
+    /**
+     * Toggle the selected generator's sign in the logical basis.
+     * @param generator_index Generator number.
+     * @param basis Generator basis.
+     */
+    void FlipSign(QubitSize generator_index, Basis basis) noexcept;
+
+    /**
+     * Copy generator components and flags from other into already allocated storage.
+     * The destination capacity must accommodate other's active qubits.
+     * Does not update the active qubit count or allocate storage.
+     * @param other Source tableau.
+     */
     void CopyRows(const InverseTableau& other) noexcept;
 
-    [[nodiscard]] bool Measure(QubitIdx q, Basis basis);
+    /**
+     * Measure qubit q in the selected basis, collapsing the state only if the outcome is random.
+     * @param q Qubit index.
+     * @param basis Generator basis.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    [[nodiscard]] bool Measure(QubitSize q, Basis basis);
 
-    void CleanUp(QubitIdx pivot, ConstBitWordSpan targets, bool apply_s_dagger) noexcept;
-    void Collapse(QubitIdx pivot, bool p) noexcept;
-    [[nodiscard]] bool RandomMeasurement(QubitIdx q, Basis b);
+    /**
+     * Apply measurement cleanup to every active generator and update their signs.
+     * @param pivot Control position for the cleanup Cx gates.
+     * @param targets Packed bits marking target positions, excluding the pivot.
+     * @param apply_s_dagger Whether to apply S dagger to the pivot after the Cx gates.
+     */
+    void CleanUp(QubitSize pivot, ConstBitWordSpan targets, bool apply_s_dagger) noexcept;
+
+    /**
+     * Update all generators and signs for a random measurement after cleanup.
+     * @param pivot Position selected during cleanup.
+     * @param p Sampled measurement result.
+     */
+    void Collapse(QubitSize pivot, bool p) noexcept;
+
+    /**
+     * Clean up and collapse the tableau for a measurement with a random outcome.
+     * The generator for qubit q in basis b must contain an X component.
+     * @param q Qubit index.
+     * @param b Measurement basis.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    [[nodiscard]] bool RandomMeasurement(QubitSize q, Basis b);
 };
 
 }  // namespace stabaal::detail

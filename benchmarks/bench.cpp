@@ -15,8 +15,7 @@
 #include <system_error>
 #include <vector>
 
-#include "stabaal/simulator.hpp"
-#include "stabaal/types.hpp"
+#include "stabaal.hpp"
 
 namespace {
 
@@ -57,8 +56,8 @@ enum class GateKind : std::uint8_t { kH, kX, kS, kZ, kCx };
 
 struct Gate {
     GateKind kind;
-    stabaal::QubitIdx q;
-    stabaal::QubitIdx target;
+    stabaal::QubitSize q;
+    stabaal::QubitSize target;
 };
 
 }  // namespace
@@ -72,10 +71,10 @@ int main(int argc, char** argv) {
     }
 
     try {
-        const auto qubits{Parse<stabaal::QubitIdx>(args[1])};
+        const auto qubits{Parse<stabaal::QubitSize>(args[1])};
         const auto gates{Parse<std::size_t>(args[2])};
         const auto repeats{Parse<std::uint32_t>(args[3])};
-        std::uniform_int_distribution<stabaal::QubitIdx> qubit{0, qubits - 1};
+        std::uniform_int_distribution<stabaal::QubitSize> qubit{0, qubits - 1};
         std::vector<Gate> circuit{};
         circuit.reserve(gates);
 
@@ -129,7 +128,7 @@ int main(int argc, char** argv) {
                 std::chrono::duration<double>{std::chrono::steady_clock::now() - copy_start}
                     .count());
             const auto measurement_start{std::chrono::steady_clock::now()};
-            for (stabaal::QubitIdx q{0}; q < qubits; ++q) {
+            for (stabaal::QubitSize q{0}; q < qubits; ++q) {
                 outcome = measured.MeasureZ(q);
             }
             const auto measurement_stop{std::chrono::steady_clock::now()};

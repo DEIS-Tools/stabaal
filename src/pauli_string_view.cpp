@@ -11,6 +11,15 @@ namespace stabaal::detail {
 
 namespace {
 
+/**
+ * Multiply packed Pauli strings, storing the product's components in xs and zs.
+ * Uses POPCNT when supported, with a default CPU fallback.
+ * @param xs Writable X components of the left-hand string.
+ * @param zs Writable Z components of the left-hand string.
+ * @param other_xs X components of the right-hand string.
+ * @param other_zs Z components of the right-hand string.
+ * @return Exponent p in [0, 3] for the product's phase factor i^p, excluding stored signs.
+ */
 __attribute__((target_clones("popcnt", "default"))) PhaseExponent
 XorWordsWithPhase(const BitWordSpan xs, const BitWordSpan zs, const ConstBitWordSpan other_xs,
                   const ConstBitWordSpan other_zs) noexcept {
@@ -36,8 +45,17 @@ XorWordsWithPhase(const BitWordSpan xs, const BitWordSpan zs, const ConstBitWord
     return (exponent + PhaseExponent{2} * (std::popcount(negative_phases) % 2)) % 4;
 }
 
+/**
+ * Fill measurement targets and determine whether the pivot needs S dagger.
+ * Uses POPCNT when supported, with a default CPU fallback.
+ * @param xs X components of the measured generator.
+ * @param zs Z components of the measured generator.
+ * @param pivot Bit position with an X component, excluded from the targets.
+ * @param targets Output words containing the X-component bits with the pivot bit cleared.
+ * @return Whether cleanup needs S dagger on the pivot.
+ */
 __attribute__((target_clones("popcnt", "default"))) bool MeasurementTargetWords(
-    const ConstBitWordSpan xs, const ConstBitWordSpan zs, const QubitIdx pivot,
+    const ConstBitWordSpan xs, const ConstBitWordSpan zs, const QubitSize pivot,
     const BitWordSpan targets) noexcept {
     BitWord parity{0};
     for (std::size_t i{0}; i < targets.size(); ++i) {
@@ -54,6 +72,16 @@ struct CleanupCounts {
     bool overlap_parity;
 };
 
+/**
+ * Count target Z components and toggle target X components if the pivot has an X component.
+ * Uses POPCNT when supported, with a default CPU fallback.
+ * @param xs Writable X components of the generator being updated.
+ * @param zs Z components of the generator being updated.
+ * @param targets Packed bits marking cleanup target positions.
+ * @param x X component at the pivot.
+ * @return Target Z-component count and, if x is true, the parity of target X/Z overlaps
+ * before the update. The overlap parity is false when x is false.
+ */
 __attribute__((target_clones("popcnt", "default"))) CleanupCounts
 CleanUpWords(const BitWordSpan xs, const ConstBitWordSpan zs, const ConstBitWordSpan targets,
              const bool x) noexcept {
@@ -77,31 +105,35 @@ CleanUpWords(const BitWordSpan xs, const ConstBitWordSpan zs, const ConstBitWord
 PauliStringView::PauliStringView(const BitWordSpan xs, const BitWordSpan zs) noexcept
     : xs_{xs}, zs_{zs} {}
 
-bool PauliStringView::AnyX(const QubitIdx num_qubits) const noexcept {
+bool PauliStringView::AnyX(const QubitSize num_qubits) const noexcept {
     const auto words{xs_.first(WordCount(num_qubits))};
     return std::any_of(words.begin(), words.end(), [](const auto word) { return word != 0; });
 }
 
-bool PauliStringView::GetX(const QubitIdx idx) const noexcept { return GetBit(xs_, idx); }
+bool PauliStringView::GetX(const QubitSize index) const noexcept { return GetBit(xs_, index); }
 
-bool PauliStringView::GetZ(const QubitIdx idx) const noexcept { return GetBit(zs_, idx); }
+bool PauliStringView::GetZ(const QubitSize index) const noexcept { return GetBit(zs_, index); }
 
-void PauliStringView::SetX(const QubitIdx idx, const bool val) noexcept { SetBit(xs_, idx, val); }
-
-void PauliStringView::SetZ(const QubitIdx idx, const bool val) noexcept { SetBit(zs_, idx, val); }
-
-void PauliStringView::SwapXZ(const QubitIdx idx) noexcept {
-    const bool x{GetX(idx)};
-    SetX(idx, GetZ(idx));
-    SetZ(idx, x);
+void PauliStringView::SetX(const QubitSize index, const bool value) noexcept {
+    SetBit(xs_, index, value);
 }
 
-bool PauliStringView::MeasurementTargets(const QubitIdx pivot,
+void PauliStringView::SetZ(const QubitSize index, const bool value) noexcept {
+    SetBit(zs_, index, value);
+}
+
+void PauliStringView::SwapXZ(const QubitSize index) noexcept {
+    const bool x{GetX(index)};
+    SetX(index, GetZ(index));
+    SetZ(index, x);
+}
+
+bool PauliStringView::MeasurementTargets(const QubitSize pivot,
                                          const BitWordSpan targets) const noexcept {
     return MeasurementTargetWords(xs_, zs_, pivot, targets);
 }
 
-bool PauliStringView::CleanUp(const QubitIdx pivot, const ConstBitWordSpan targets,
+bool PauliStringView::CleanUp(const QubitSize pivot, const ConstBitWordSpan targets,
                               const bool apply_s_dagger) noexcept {
     const bool x{GetX(pivot)};
     bool z{GetZ(pivot)};
@@ -120,9 +152,10 @@ bool PauliStringView::CleanUp(const QubitIdx pivot, const ConstBitWordSpan targe
 }
 
 PhaseExponent PauliStringView::XorWithPhase(const PauliStringView& other,
-                                            const QubitIdx num_qubits) noexcept {
+                                            const QubitSize num_qubits) noexcept {
     const auto num_words{WordCount(num_qubits)};
     return XorWordsWithPhase(xs_.first(num_words), zs_.first(num_words), other.xs_.first(num_words),
                              other.zs_.first(num_words));
 }
+
 }  // namespace stabaal::detail

@@ -31,11 +31,11 @@ struct CoutCapture {
 struct StateVector {
     std::vector<std::complex<double>> amplitudes;
 
-    explicit StateVector(const QubitIdx n) : amplitudes(std::size_t{1} << n) { amplitudes[0] = 1; }
+    explicit StateVector(const QubitSize n) : amplitudes(std::size_t{1} << n) { amplitudes[0] = 1; }
 
     void Add() { amplitudes.resize(amplitudes.size() * 2); }
 
-    void Apply(const std::uint8_t gate, const QubitIdx q, const QubitIdx target) {
+    void Apply(const std::uint8_t gate, const QubitSize q, const QubitSize target) {
         const auto mask{std::size_t{1} << q};
         for (std::size_t i{0}; i < amplitudes.size(); ++i) {
             if ((i & mask) != 0) continue;
@@ -66,7 +66,7 @@ struct StateVector {
         }
     }
 
-    void MeasureZ(const QubitIdx q, const bool result) {
+    void MeasureZ(const QubitSize q, const bool result) {
         const auto mask{std::size_t{1} << q};
         double probability{0};
         for (std::size_t i{0}; i < amplitudes.size(); ++i) {
@@ -82,7 +82,8 @@ struct StateVector {
 
 TEST_CASE("InverseTableau gates and measurements agree with state-vector simulation",
           "[inverse_tableau]") {
-    const QubitIdx initial_qubits{GENERATE(QubitIdx{1}, QubitIdx{2}, QubitIdx{3}, QubitIdx{4})};
+    const QubitSize initial_qubits{
+        GENERATE(QubitSize{1}, QubitSize{2}, QubitSize{3}, QubitSize{4})};
     std::mt19937 choices{1234};
     for (std::uint32_t trial{0}; trial < 16; ++trial) {
         auto n{initial_qubits};
@@ -95,9 +96,9 @@ TEST_CASE("InverseTableau gates and measurements agree with state-vector simulat
                 ++n;
             }
             const auto gate{static_cast<std::uint8_t>(choices() % (n == 1 ? 4 : 5))};
-            const QubitIdx q{static_cast<QubitIdx>(choices() % n)};
-            const QubitIdx target{
-                static_cast<QubitIdx>((q + 1 + choices() % (n == 1 ? 1 : n - 1)) % n)};
+            const QubitSize q{static_cast<QubitSize>(choices() % n)};
+            const QubitSize target{
+                static_cast<QubitSize>((q + 1 + choices() % (n == 1 ? 1 : n - 1)) % n)};
             CAPTURE(trial, step, gate, q, target);
             switch (gate) {
                 case 0:
@@ -126,16 +127,16 @@ TEST_CASE("InverseTableau gates and measurements agree with state-vector simulat
                 if (x_basis) reference.Apply(0, q, 0);
             }
         }
-        for (QubitIdx q{0}; q < n; ++q) {
+        for (QubitSize q{0}; q < n; ++q) {
             reference.MeasureZ(q, tableau.MeasureZ(q));
         }
     }
 }
 
 TEST_CASE("New qubits start in zero", "[inverse_tableau][add]") {
-    const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{4})};
+    const QubitSize n{GENERATE(QubitSize{0}, QubitSize{1}, QubitSize{4})};
     InverseTableau t{n};
-    for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(t.MeasureZ(q));
+    for (QubitSize q{0}; q < n; ++q) CHECK_FALSE(t.MeasureZ(q));
     t.Add();
     CHECK_FALSE(t.MeasureZ(n));
     t.ApplyX(n);
@@ -164,8 +165,8 @@ TEST_CASE("Bell state measurements remain correlated", "[inverse_tableau][entang
         InverseTableau t{2};
         t.ApplyH(0);
         t.ApplyCx(0, 1);
-        const QubitIdx first{reverse_order ? 1U : 0U};
-        const QubitIdx second{1 - first};
+        const QubitSize first{reverse_order ? 1U : 0U};
+        const QubitSize second{1 - first};
         const bool result{x_basis ? t.MeasureX(first) : t.MeasureZ(first)};
         seen.insert(result);
         CHECK((x_basis ? t.MeasureX(second) : t.MeasureZ(second)) == result);
@@ -221,8 +222,8 @@ TEST_CASE("Print", "[inverse_tableau][Print]") {
 }
 
 TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[inverse_tableau][signs]") {
-    const QubitIdx n{
-        GENERATE(QubitIdx{1}, QubitIdx{63}, QubitIdx{64}, QubitIdx{65}, QubitIdx{129})};
+    const QubitSize n{
+        GENERATE(QubitSize{1}, QubitSize{63}, QubitSize{64}, QubitSize{65}, QubitSize{129})};
     const auto q{n - 1};
     InverseTableau t{n};
     t.ApplyX(q);
@@ -234,7 +235,7 @@ TEST_CASE("Packed signs survive swaps and growth at block boundaries", "[inverse
 }
 
 TEST_CASE("InverseTableau copies remain independent after growth", "[inverse_tableau][copy]") {
-    const auto n{GENERATE(QubitIdx{0}, QubitIdx{64}, QubitIdx{65})};
+    const auto n{GENERATE(QubitSize{0}, QubitSize{64}, QubitSize{65})};
     InverseTableau original{n};
     original.Add();
     original.ApplyX(n);
@@ -256,9 +257,9 @@ TEST_CASE("InverseTableau copies remain independent after growth", "[inverse_tab
 TEST_CASE("Growing tableaus preserve row swaps and copies discard spare capacity",
           "[inverse_tableau][copy][growth]") {
     const auto initial{
-        GENERATE(QubitIdx{0}, QubitIdx{32}, QubitIdx{63}, QubitIdx{64}, QubitIdx{128})};
+        GENERATE(QubitSize{0}, QubitSize{32}, QubitSize{63}, QubitSize{64}, QubitSize{128})};
     InverseTableau original{initial};
-    for (QubitIdx q{0}; q < initial + 145; ++q) {
+    for (QubitSize q{0}; q < initial + 145; ++q) {
         if (q >= initial) original.Add();
         if (q % 3 == 0) original.ApplyX(q);
         if (q % 2 != 0) original.ApplyH(q);
@@ -277,7 +278,7 @@ TEST_CASE("Growing tableaus preserve row swaps and copies discard spare capacity
             original.ApplyX(q);
         const auto outcome{q % 2 != 0 ? original.MeasureX(q) : original.MeasureZ(q)};
         CHECK(outcome != (q % 3 == 0));
-        for (QubitIdx i{0}; i <= q; ++i) {
+        for (QubitSize i{0}; i <= q; ++i) {
             CHECK((i % 2 != 0 ? copy.MeasureX(i) : copy.MeasureZ(i)) == (i % 3 == 0));
             CHECK((i % 2 != 0 ? assigned.MeasureX(i) : assigned.MeasureZ(i)) == (i % 3 == 0));
         }
@@ -292,26 +293,26 @@ TEST_CASE("Growing tableaus preserve row swaps and copies discard spare capacity
 
 TEST_CASE("Entanglement survives repeated storage growth across word boundaries",
           "[inverse_tableau][measurement][growth]") {
-    const auto n{GENERATE(QubitIdx{65}, QubitIdx{129}, QubitIdx{257})};
+    const auto n{GENERATE(QubitSize{65}, QubitSize{129}, QubitSize{257})};
     InverseTableau tableau{0};
     tableau.Add();
     tableau.ApplyH(0);
-    for (QubitIdx q{1}; q < n; ++q) {
+    for (QubitSize q{1}; q < n; ++q) {
         tableau.Add();
         tableau.ApplyCx(0, q);
     }
     auto z_copy{tableau};
     const auto outcome{z_copy.MeasureZ(0)};
-    for (QubitIdx q{1}; q < n; ++q) CHECK(z_copy.MeasureZ(q) == outcome);
+    for (QubitSize q{1}; q < n; ++q) CHECK(z_copy.MeasureZ(q) == outcome);
     bool parity{false};
-    for (QubitIdx q{0}; q < n; ++q) parity = parity != tableau.MeasureX(q);
+    for (QubitSize q{0}; q < n; ++q) parity = parity != tableau.MeasureX(q);
     CHECK_FALSE(parity);
 }
 
 TEST_CASE("Simulator rejects invalid gate and measurement indices", "[simulator][bounds]") {
-    const QubitIdx n{GENERATE(QubitIdx{0}, QubitIdx{1}, QubitIdx{65})};
+    const QubitSize n{GENERATE(QubitSize{0}, QubitSize{1}, QubitSize{65})};
     Simulator<> tableau{n};
-    for (const auto q : {n, n + 1, std::numeric_limits<QubitIdx>::max()}) {
+    for (const auto q : {n, n + 1, std::numeric_limits<QubitSize>::max()}) {
         CHECK_THROWS_AS(tableau.H(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.X(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.S(q), std::out_of_range);
@@ -321,7 +322,7 @@ TEST_CASE("Simulator rejects invalid gate and measurement indices", "[simulator]
         CHECK_THROWS_AS(tableau.MeasureX(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.MeasureZ(q), std::out_of_range);
     }
-    for (QubitIdx q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
+    for (QubitSize q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
 }
 
 TEST_CASE("Simulator validation follows growth and copying", "[simulator][bounds][copy]") {
@@ -342,9 +343,9 @@ TEST_CASE("Simulator validation follows growth and copying", "[simulator][bounds
 TEST_CASE("Simulator rejects qubit count overflow before calling the backend",
           "[simulator][bounds]") {
     struct FullBackend : InverseTableau {
-        explicit FullBackend(QubitIdx /*num_qubits*/) : InverseTableau{0} {}
-        [[nodiscard]] QubitIdx NumQubits() const noexcept {
-            return std::numeric_limits<QubitIdx>::max();
+        explicit FullBackend(QubitSize /*num_qubits*/) : InverseTableau{0} {}
+        [[nodiscard]] QubitSize NumQubits() const noexcept {
+            return std::numeric_limits<QubitSize>::max();
         }
     };
     Simulator<FullBackend> simulator{0};
@@ -353,18 +354,18 @@ TEST_CASE("Simulator rejects qubit count overflow before calling the backend",
 
 TEST_CASE("GHZ measurement parity preserves phases across word boundaries",
           "[inverse_tableau][measurement]") {
-    const QubitIdx n{GENERATE(QubitIdx{1}, QubitIdx{2}, QubitIdx{63}, QubitIdx{64}, QubitIdx{65},
-                              QubitIdx{129})};
+    const QubitSize n{GENERATE(QubitSize{1}, QubitSize{2}, QubitSize{63}, QubitSize{64},
+                               QubitSize{65}, QubitSize{129})};
     const unsigned phase{GENERATE(0U, 1U, 2U, 3U)};
     InverseTableau tableau{n};
     tableau.ApplyH(0);
-    for (QubitIdx q{1}; q < n; ++q) tableau.ApplyCx(0, q);
+    for (QubitSize q{1}; q < n; ++q) tableau.ApplyCx(0, q);
     for (unsigned i{0}; i < phase; ++i) tableau.ApplyS(0);
     if (phase % 2 != 0) {
         for (unsigned i{0}; i < 3; ++i) tableau.ApplyS(n - 1);
     }
     bool parity{false};
-    for (QubitIdx q{0}; q < n; ++q) {
+    for (QubitSize q{0}; q < n; ++q) {
         const bool result{tableau.MeasureX(q)};
         CHECK(tableau.MeasureX(q) == result);
         parity = parity != result;
