@@ -206,7 +206,8 @@ void InverseTableau::Collapse(const QubitSize pivot, const bool p) noexcept {
     }
 }
 
-bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b) {
+bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b, bool force,
+                                       bool measurement) {
     const auto gen{Generator(q, b)};
     QubitSize pivot{0};
 
@@ -228,14 +229,20 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b) {
         CleanUp(pivot, targets, apply_s_dagger);
     }
 
-    const bool p{std::bernoulli_distribution{0.5}(RandomEngine())};
+    bool p{false};
+    if (force) {
+        p = measurement;
+    } else {
+        p = std::bernoulli_distribution{0.5}(RandomEngine());
+    }
     Collapse(pivot, p);
     return Sign(q, b);
 }
 
 bool InverseTableau::Measure(const QubitSize q, const Basis basis) {
     assert(q < num_qubits_);
-    return Generator(q, basis).AnyX(num_qubits_) ? RandomMeasurement(q, basis) : Sign(q, basis);
+    return Generator(q, basis).AnyX(num_qubits_) ? RandomMeasurement(q, basis, false, false)
+                                                 : Sign(q, basis);
 }
 
 bool InverseTableau::IsDeterministicMeasure(const QubitSize q, Basis basis) {
@@ -256,32 +263,7 @@ bool InverseTableau::MeasureX(const QubitSize q) { return Measure(q, Basis::kHad
 bool InverseTableau::MeasureZ(const QubitSize q) { return Measure(q, Basis::kComputational); }
 
 bool InverseTableau::ForceMeasure(const QubitSize q, bool measurement, Basis basis) {
-    assert(q < num_qubits_);
-    assert(!IsDeterministicMeasure(q, basis));
-
-    const auto gen{Generator(q, basis)};
-    QubitSize pivot{0};
-
-    for (QubitSize i{0}; i < num_qubits_; ++i) {
-        if (gen.GetX(i)) {
-            pivot = i;
-            break;
-        }
-    }
-
-    const auto num_words{WordCount(num_qubits_)};
-    std::array<BitWord, kStackTargetWords> local_targets{};
-    std::vector<BitWord> heap_targets(num_words > local_targets.size() ? num_words : 0);
-    const BitWordSpan targets{heap_targets.empty() ? local_targets.data() : heap_targets.data(),
-                              num_words};
-    const bool apply_s_dagger{gen.MeasurementTargets(pivot, targets)};
-    if (apply_s_dagger ||
-        std::any_of(targets.begin(), targets.end(), [](const auto word) { return word != 0; })) {
-        CleanUp(pivot, targets, apply_s_dagger);
-    }
-
-    Collapse(pivot, measurement);
-    return Sign(q, basis);
+    return RandomMeasurement(q, basis, true, measurement);
 }
 
 bool InverseTableau::ForceMeasureZ(const QubitSize q, const bool measurement) {

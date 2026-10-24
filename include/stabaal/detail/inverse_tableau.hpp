@@ -296,9 +296,11 @@ class InverseTableau {
      * The generator for qubit q in basis b must contain an X component.
      * @param q Qubit index.
      * @param b Measurement basis.
+     * @param force False for non-deterministic measurement, true to force a specific measurement.
+     * @param measurement The final measurement if force is set to true.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool RandomMeasurement(QubitSize q, Basis b);
+    [[nodiscard]] bool RandomMeasurement(QubitSize q, Basis b, bool force, bool measurement);
 };
 
 }  // namespace stabaal::detail
