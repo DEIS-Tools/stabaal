@@ -206,7 +206,8 @@ void InverseTableau::Collapse(const QubitSize pivot, const bool p) noexcept {
     }
 }
 
-bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b) {
+bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b, bool force,
+                                       bool measurement) {
     const auto gen{Generator(q, b)};
     QubitSize pivot{0};
 
@@ -228,19 +229,50 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b) {
         CleanUp(pivot, targets, apply_s_dagger);
     }
 
-    const bool p{std::bernoulli_distribution{0.5}(RandomEngine())};
+    bool p{false};
+    if (force) {
+        p = measurement;
+    } else {
+        p = std::bernoulli_distribution{0.5}(RandomEngine());
+    }
     Collapse(pivot, p);
     return Sign(q, b);
 }
 
 bool InverseTableau::Measure(const QubitSize q, const Basis basis) {
     assert(q < num_qubits_);
-    return Generator(q, basis).AnyX(num_qubits_) ? RandomMeasurement(q, basis) : Sign(q, basis);
+    return Generator(q, basis).AnyX(num_qubits_) ? RandomMeasurement(q, basis, false, false)
+                                                 : Sign(q, basis);
+}
+
+bool InverseTableau::IsDeterministicMeasure(const QubitSize q, Basis basis) {
+    assert(q < num_qubits_);
+    return !Generator(q, basis).AnyX(num_qubits_);
+}
+
+bool InverseTableau::IsDeterministicMeasureZ(const QubitSize q) {
+    return IsDeterministicMeasure(q, Basis::kComputational);
+}
+
+bool InverseTableau::IsDeterministicMeasureX(const QubitSize q) {
+    return IsDeterministicMeasure(q, Basis::kHadamard);
 }
 
 bool InverseTableau::MeasureX(const QubitSize q) { return Measure(q, Basis::kHadamard); }
 
 bool InverseTableau::MeasureZ(const QubitSize q) { return Measure(q, Basis::kComputational); }
+
+bool InverseTableau::ForceMeasure(const QubitSize q, bool measurement, Basis basis) {
+    return RandomMeasurement(q, basis, true, measurement);
+}
+
+bool InverseTableau::ForceMeasureZ(const QubitSize q, const bool measurement) {
+    return ForceMeasure(q, measurement, Basis::kComputational);
+}
+
+bool InverseTableau::ForceMeasureX(const QubitSize q, const bool measurement) {
+    return ForceMeasure(q, measurement, Basis::kHadamard);
+}
 
 void InverseTableau::ApplyH(const QubitSize q) noexcept {
     assert(q < num_qubits_);
