@@ -73,14 +73,14 @@ class InverseTableau {
      * @param q Qubit index.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool MeasureX(QubitSize q);
+    bool MeasureX(QubitSize q);
 
     /**
      * Measure qubit q in the Z basis and update the state to match the outcome.
      * @param q Qubit index.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool MeasureZ(QubitSize q);
+    bool MeasureZ(QubitSize q);
 
     /**
      * Checks wether measuring qubit q in the X basis will be a deterministic measurement
@@ -290,7 +290,7 @@ class InverseTableau {
      * @param basis Generator basis.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool Measure(QubitSize q, Basis basis);
+    bool Measure(QubitSize q, Basis basis);
 
     /**
      * Checks wether measuring in the selected basis will be a deterministic measurement
@@ -332,7 +332,7 @@ class InverseTableau {
      * @param measurement The final measurement if force is set to true.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool RandomMeasurement(QubitSize q, Basis b, bool force, bool measurement);
+    bool RandomMeasurement(QubitSize q, Basis b, bool force = false, bool measurement = false);
 };
 
 }  // namespace stabaal::detail

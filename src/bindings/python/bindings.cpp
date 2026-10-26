@@ -38,16 +38,16 @@ PYBIND11_MODULE(stabaal, m) {
                  "Measure qubit q in computational basis.")
             .def("print", &InverseSim::Print, "Print the backend's tableau to stdout.")
             .def(
-               "__repr__",
-               [](const InverseSim& sim) {
+                "__repr__",
+                [](const InverseSim& sim) {
                     auto output = py::module_::import("io").attr("StringIO")();
                     {
-                    py::scoped_ostream_redirect redirect(std::cout, output);
-                    sim.Print();
+                        py::scoped_ostream_redirect redirect(std::cout, output);
+                        sim.Print();
                     }
                     return output.attr("getvalue")().cast<std::string>();
-               },
-               "Print the backend's tableau to stdout")
+                },
+                "Print the backend's tableau to stdout")
             .def("memory_usage", &InverseSim::MemoryUsage,
                  "Return the simulator's memory usage in bytes.");
 

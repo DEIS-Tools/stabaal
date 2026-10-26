@@ -241,8 +241,7 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b, bool fo
 
 bool InverseTableau::Measure(const QubitSize q, const Basis basis) {
     assert(q < num_qubits_);
-    return Generator(q, basis).AnyX(num_qubits_) ? RandomMeasurement(q, basis, false, false)
-                                                 : Sign(q, basis);
+    return IsDeterministicMeasure(q, basis) ? Sign(q, basis) : RandomMeasurement(q, basis);
 }
 
 bool InverseTableau::IsDeterministicMeasure(const QubitSize q, Basis basis) {

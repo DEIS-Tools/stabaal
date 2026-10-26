@@ -62,7 +62,7 @@ class Simulator {
      * @param q Qubit index.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool MeasureX(QubitSize q) {
+    bool MeasureX(QubitSize q) {
         CheckQubit(q);
         return backend_.MeasureX(q);
     }
@@ -72,7 +72,7 @@ class Simulator {
      * @param q Qubit index.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool MeasureZ(QubitSize q) {
+    bool MeasureZ(QubitSize q) {
         CheckQubit(q);
         return backend_.MeasureZ(q);
     }
