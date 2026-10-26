@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "pauli_string_view.hpp"
 #include "stabaal/types.hpp"
@@ -73,14 +74,14 @@ class InverseTableau {
      * @param q Qubit index.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool MeasureX(QubitSize q);
+    bool MeasureX(QubitSize q);
 
     /**
      * Measure qubit q in the Z basis and update the state to match the outcome.
      * @param q Qubit index.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool MeasureZ(QubitSize q);
+    bool MeasureZ(QubitSize q);
 
     /**
      * Checks wether measuring qubit q in the X basis will be a deterministic measurement
@@ -290,7 +291,7 @@ class InverseTableau {
      * @param basis Generator basis.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool Measure(QubitSize q, Basis basis);
+    bool Measure(QubitSize q, Basis basis);
 
     /**
      * Checks wether measuring in the selected basis will be a deterministic measurement
@@ -328,11 +329,11 @@ class InverseTableau {
      * The generator for qubit q in basis b must contain an X component.
      * @param q Qubit index.
      * @param b Measurement basis.
-     * @param force False for non-deterministic measurement, true to force a specific measurement.
-     * @param measurement The final measurement if force is set to true.
+     * @param measurement_opt Force measurement to a specific outcome if not std::nullopt.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool RandomMeasurement(QubitSize q, Basis b, bool force, bool measurement);
+    bool RandomMeasurement(QubitSize q, Basis b,
+                           std::optional<bool> measurement_opt = std::nullopt);
 };
 
 }  // namespace stabaal::detail

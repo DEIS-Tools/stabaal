@@ -2,4 +2,3 @@
 build
 flamegraph.svg
 flamegraph.folded
-test.sh

@@ -2,7 +2,7 @@ SOURCES := $(shell find src -path src/bindings -prune -o -type f -name '*.cpp' -
 FORMAT_FILES := $(shell find src include tests benchmarks -type f \( -name '*.cpp' -o -name '*.hpp' \))
 BENCH_ARGS ?= 2048 500000 50
 
-.PHONY: release debug flamegraph lint format
+.PHONY: release debug flamegraph lint format dry-format test
 
 release debug:
 	cmake --workflow --preset $@
