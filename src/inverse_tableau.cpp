@@ -8,6 +8,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <random>
 #include <utility>
 #include <vector>
@@ -206,8 +207,8 @@ void InverseTableau::Collapse(const QubitSize pivot, const bool p) noexcept {
     }
 }
 
-bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b, bool force,
-                                       bool measurement) {
+bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b,
+                                       std::optional<bool> measurement_opt) {
     const auto gen{Generator(q, b)};
     QubitSize pivot{0};
 
@@ -230,8 +231,8 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b, bool fo
     }
 
     bool p{false};
-    if (force) {
-        p = measurement;
+    if (measurement_opt) {
+        p = measurement_opt.value();
     } else {
         p = std::bernoulli_distribution{0.5}(RandomEngine());
     }
@@ -262,7 +263,7 @@ bool InverseTableau::MeasureX(const QubitSize q) { return Measure(q, Basis::kHad
 bool InverseTableau::MeasureZ(const QubitSize q) { return Measure(q, Basis::kComputational); }
 
 bool InverseTableau::ForceMeasure(const QubitSize q, bool measurement, Basis basis) {
-    return RandomMeasurement(q, basis, true, measurement);
+    return RandomMeasurement(q, basis, measurement);
 }
 
 bool InverseTableau::ForceMeasureZ(const QubitSize q, const bool measurement) {

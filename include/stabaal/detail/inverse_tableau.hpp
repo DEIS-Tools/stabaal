@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "pauli_string_view.hpp"
 #include "stabaal/types.hpp"
@@ -328,11 +329,11 @@ class InverseTableau {
      * The generator for qubit q in basis b must contain an X component.
      * @param q Qubit index.
      * @param b Measurement basis.
-     * @param force False for non-deterministic measurement, true to force a specific measurement.
-     * @param measurement The final measurement if force is set to true.
+     * @param measurement_opt Force measurement to a specific outcome if not std::nullopt.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    bool RandomMeasurement(QubitSize q, Basis b, bool force = false, bool measurement = false);
+    bool RandomMeasurement(QubitSize q, Basis b,
+                           std::optional<bool> measurement_opt = std::nullopt);
 };
 
 }  // namespace stabaal::detail
