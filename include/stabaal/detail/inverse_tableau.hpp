@@ -132,7 +132,7 @@ class InverseTableau {
     void ApplySdg(QubitSize q) noexcept;
 
     /**
-     * Apply an SX gate to qubit q.
+     * Apply an √X gate to qubit q.
      * @param q Qubit index.
      */
     void ApplySx(QubitSize q) noexcept;

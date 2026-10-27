@@ -106,7 +106,7 @@ class Simulator {
     }
 
     /**
-     * Apply an SX gate to qubit q.
+     * Apply an √X gate to qubit q.
      * @param q Qubit index.
      */
     void Sx(QubitSize q) {
