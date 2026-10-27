@@ -25,6 +25,7 @@ concept SimulationBackend =
         { backend.ApplyH(q) } -> std::same_as<void>;
         { backend.ApplyS(q) } -> std::same_as<void>;
         { backend.ApplySdg(q) } -> std::same_as<void>;
+        { backend.ApplySx(q) } -> std::same_as<void>;
         { backend.ApplyI(q) } -> std::same_as<void>;
         { backend.ApplyX(q) } -> std::same_as<void>;
         { backend.ApplyZ(q) } -> std::same_as<void>;
@@ -102,6 +103,15 @@ class Simulator {
     void Sdg(QubitSize q) {
         CheckQubit(q);
         backend_.ApplySdg(q);
+    }
+
+    /**
+     * Apply an SX gate to qubit q.
+     * @param q Qubit index.
+     */
+    void Sx(QubitSize q) {
+        CheckQubit(q);
+        backend_.ApplySx(q);
     }
 
     /**
