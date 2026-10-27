@@ -296,7 +296,7 @@ void InverseTableau::ApplyS(const QubitSize q) noexcept {
     SetBit(hadamard_signs, q, Phase(exponent, hadamard_sign, computational_sign, 3));
 }
 
-void InverseTableau::ApplySdg(QubitSize q) noexcept {
+void InverseTableau::ApplySdg(const QubitSize q) noexcept {
     assert(q < num_qubits_);
 
     const auto computational{PhysicalBasis(q, Basis::kComputational)};
@@ -310,6 +310,13 @@ void InverseTableau::ApplySdg(QubitSize q) noexcept {
             .XorWithPhase(PhysicalGenerator(q, computational), num_qubits_),
     };
     SetBit(hadamard_signs, q, Phase(exponent, hadamard_sign, computational_sign, 1));
+}
+
+void InverseTableau::ApplySx(const QubitSize q) noexcept {
+    assert(q < num_qubits_);
+    ApplyH(q);
+    ApplyS(q);
+    ApplyH(q);
 }
 
 void InverseTableau::ApplyI([[maybe_unused]] const QubitSize q) noexcept {}

@@ -227,6 +227,66 @@ TEST_CASE("Sdg cancels an entangled phase across word boundaries", "[simulator][
     CHECK((first != second) == (x_basis && negative));
 }
 
+TEST_CASE("Sx preserves X, maps Y to Z, and maps Z to negative Y", "[simulator][Sx]") {
+    const auto n{
+        GENERATE(QubitSize{1}, QubitSize{63}, QubitSize{64}, QubitSize{65}, QubitSize{129})};
+    const auto basis{GENERATE(0, 1, 2)};  // Z, X, Y
+    const bool negative{GENERATE(false, true)};
+    const auto q{n - 1};
+    CAPTURE(n, basis, negative);
+    Simulator<> sim{n};
+    if (negative) sim.X(q);
+    if (basis != 0) sim.H(q);
+    if (basis == 2) sim.S(q);
+    sim.Sx(q);
+    if (basis == 0) sim.Sdg(q);
+    CHECK((basis == 2 ? sim.MeasureZ(q) : sim.MeasureX(q)) == (negative != (basis == 0)));
+    for (QubitSize spectator{0}; spectator < q; ++spectator) {
+        CHECK_FALSE(sim.MeasureZ(spectator));
+    }
+}
+
+TEST_CASE("Two Sx gates equal X and four equal identity", "[simulator][Sx]") {
+    const auto n{GENERATE(QubitSize{1}, QubitSize{64}, QubitSize{65}, QubitSize{129})};
+    const auto basis{GENERATE(0, 1, 2)};  // Z, X, Y
+    const bool negative{GENERATE(false, true)};
+    const auto repetitions{GENERATE(2, 4)};
+    const auto q{n - 1};
+    CAPTURE(n, basis, negative, repetitions);
+    Simulator<> sim{n};
+    if (negative) sim.X(q);
+    if (basis != 0) sim.H(q);
+    if (basis == 2) sim.S(q);
+    for (int i{0}; i < repetitions; ++i) sim.Sx(q);
+    if (basis == 2) sim.Sdg(q);
+    CHECK((basis == 0 ? sim.MeasureZ(q) : sim.MeasureX(q)) ==
+          (negative != (repetitions == 2 && basis != 1)));
+}
+
+TEST_CASE("Sx cancels H Sdg H on an entangled qubit across word boundaries",
+          "[simulator][Sx][entangle]") {
+    const auto n{GENERATE(QubitSize{2}, QubitSize{64}, QubitSize{65}, QubitSize{129})};
+    const bool reverse{GENERATE(false, true)};
+    const bool negative{GENERATE(false, true)};
+    const bool flipped{GENERATE(false, true)};
+    const QubitSize c{reverse ? n - 1 : 0};
+    const QubitSize t{reverse ? 0 : n - 1};
+    CAPTURE(n, c, t, negative, flipped);
+    Simulator<> sim{n};
+    if (negative) sim.X(c);
+    if (flipped) sim.X(t);
+    sim.H(c);
+    sim.Cx(c, t);
+    sim.Sx(t);
+    sim.H(t);
+    sim.Sdg(t);
+    sim.H(t);
+    sim.Cx(c, t);
+    sim.H(c);
+    CHECK(sim.MeasureZ(c) == negative);
+    CHECK(sim.MeasureZ(t) == flipped);
+}
+
 TEST_CASE("Identity preserves an entangled state and its phase", "[simulator][I]") {
     const auto n{GENERATE(QubitSize{2}, QubitSize{65}, QubitSize{129})};
     const bool x_basis{GENERATE(false, true)};
@@ -468,6 +528,7 @@ TEST_CASE("Simulator rejects invalid gate and measurement indices", "[simulator]
         CHECK_THROWS_AS(tableau.X(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.S(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.Sdg(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.Sx(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.Z(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.Y(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.I(q), std::out_of_range);
