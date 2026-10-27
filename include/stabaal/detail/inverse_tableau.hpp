@@ -20,6 +20,11 @@ class InverseTableau {
         kComputational,
         kHadamard,
     };
+    struct GateInformation {
+        std::string name;
+        std::string description;
+        u_int8_t arity;
+    };
 
     /**
      * Create a tableau with num_qubits qubits initialized to |0>^num_qubits.
@@ -193,6 +198,38 @@ class InverseTableau {
      * @return Memory usage in bytes.
      */
     [[nodiscard]] std::size_t MemoryUsage() const noexcept;
+
+    using UnaryGateFunction =
+        void (stabaal::detail::InverseTableau::*)(stabaal::QubitSize) noexcept;
+
+    using BinaryGateFunction =
+        void (stabaal::detail::InverseTableau::*)(stabaal::QubitSize, stabaal::QubitSize) noexcept;
+
+    /**
+     * Return a struct containing the name, arity and a description of a gate
+     * @param gate Pointer to a unary gate function
+     * @return information about the gate
+     */
+    [[nodiscard]] static GateInformation GetGateInformation(UnaryGateFunction gate);
+
+    /**
+     * Return a struct containing the name, arity and a description of a gate
+     * @param gate Pointer to a binary gate function
+     * @return Struct containing information about the gate
+     */
+    [[nodiscard]] static GateInformation GetGateInformation(BinaryGateFunction gate);
+
+    /**
+     * Return pointers to all functions that apply a unary gate
+     * @return Array of function pointers to unary gate functions
+     */
+    [[nodiscard]] static std::array<UnaryGateFunction, 8> SupportedUnaryGates();
+
+    /**
+     * Return pointers to all functions that apply a binary gate
+     * @return Array of function pointers to binary gate functions
+     */
+    [[nodiscard]] static std::array<BinaryGateFunction, 3> SupportedBinaryGates();
 
    private:
     std::unique_ptr<BitWord[]> words_;  // NOLINT(cppcoreguidelines-avoid-c-arrays)

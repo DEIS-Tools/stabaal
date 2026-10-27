@@ -10,6 +10,7 @@
 #include <memory>
 #include <optional>
 #include <random>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -418,6 +419,63 @@ void InverseTableau::Print() const {
     }
 
     std::cout << '\n';
+}
+
+InverseTableau::GateInformation InverseTableau::GetGateInformation(UnaryGateFunction gate) {
+    if (gate == &InverseTableau::ApplyX) {
+        return {"X gate", "Applies the X gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyY) {
+        return {"Y gate", "Applies the Y gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyZ) {
+        return {"Z gate", "Applies the Z gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyH) {
+        return {"Hadamard gate", "Applies the Hadamard gate", 1};
+    }
+    if (gate == &InverseTableau::ApplySx) {
+        return {"Sx gate", "Applies the Square Root X gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyS) {
+        return {"S gate", "Applies the S gate", 1};
+    }
+    if (gate == &InverseTableau::ApplySdg) {
+        return {"S-dagger gate", "Applies the S-Dagger gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyI) {
+        return {"Identity gate", "Applies the Identity gate", 1};
+    };
+    throw std::range_error("Function is not a supported gate function");
+}
+
+InverseTableau::GateInformation InverseTableau::GetGateInformation(BinaryGateFunction gate) {
+    if (gate == &InverseTableau::ApplyCx) {
+        return {"Control-X gate", "Applies the Control-X gate", 2};
+    }
+    if (gate == &InverseTableau::ApplyCy) {
+        return {"Control-Y gate", "Applies the Control-Y gate", 2};
+    }
+    if (gate == &InverseTableau::ApplyCz) {
+        return {"Control-Z gate", "Applies the Control-Z gate", 2};
+    };
+    throw std::range_error("Function is not a supported gate function");
+}
+
+std::array<InverseTableau::UnaryGateFunction, 8> InverseTableau::SupportedUnaryGates() {
+    return std::array<InverseTableau::UnaryGateFunction, 8>{
+        &InverseTableau::ApplyX,   &InverseTableau::ApplyY,  &InverseTableau::ApplyZ,
+        &InverseTableau::ApplyH,   &InverseTableau::ApplySx, &InverseTableau::ApplyS,
+        &InverseTableau::ApplySdg, &InverseTableau::ApplyI,
+    };
+}
+
+std::array<InverseTableau::BinaryGateFunction, 3> InverseTableau::SupportedBinaryGates() {
+    return std::array<InverseTableau::BinaryGateFunction, 3>{
+        &InverseTableau::ApplyCx,
+        &InverseTableau::ApplyCy,
+        &InverseTableau::ApplyCz,
+    };
 }
 
 }  // namespace stabaal::detail

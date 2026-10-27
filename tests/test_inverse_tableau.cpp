@@ -636,4 +636,16 @@ TEST_CASE("ForceMeasureX works correctly") {
     }
 }
 
+TEST_CASE("Test gate information") {
+    InverseTableau tab{1};
+    auto unary_gates = tab.SupportedUnaryGates();
+    auto binary_gates = tab.SupportedBinaryGates();
+    for (InverseTableau::UnaryGateFunction gate : unary_gates) {
+        CHECK(tab.GetGateInformation(gate).arity == 1);
+    }
+    for (InverseTableau::BinaryGateFunction gate : binary_gates) {
+        CHECK(tab.GetGateInformation(gate).arity == 2);
+    }
+}
+
 }  // namespace stabaal::detail
