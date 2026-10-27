@@ -1,0 +1,17 @@
+[build-system]
+requires = ["scikit-build-core>=0.10", "pybind11>=3.1", "pybind11-stubgen>=2.5"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "stabaal"
+version = "0.1.0"
+description = "Dynamic Stabilizer Circuit Simulation"
+readme = "README.md"
+
+[tool.scikit-build]
+wheel.packages = []
+
+[tool.scikit-build.cmake.define]
+BUILD_PYTHON_BINDINGS = true
+BUILD_TESTING = false
+BUILD_BENCHMARKS = false

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 
 #include "pauli_string_view.hpp"
 #include "stabaal/types.hpp"
@@ -79,14 +80,44 @@ class InverseTableau {
      * @param q Qubit index.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool MeasureX(QubitSize q);
+    bool MeasureX(QubitSize q);
 
     /**
      * Measure qubit q in the Z basis and update the state to match the outcome.
      * @param q Qubit index.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool MeasureZ(QubitSize q);
+    bool MeasureZ(QubitSize q);
+
+    /**
+     * Checks wether measuring qubit q in the X basis will be a deterministic measurement
+     * @param q Qubit index.
+     * @return The outcome: true if the measurement will be deterministic, false otherwise
+     */
+    bool IsDeterministicMeasureX(QubitSize q);
+
+    /**
+     * Checks wether measuring qubit q in the Z basis will be a deterministic measurement
+     * @param q Qubit index.
+     * @return The outcome: true if the measurement will be deterministic, false otherwise
+     */
+    bool IsDeterministicMeasureZ(QubitSize q);
+
+    /**
+     * Forces a non-deterministic measurement in the X basis to have a certain outcome
+     * @param q Qubit index.
+     * @param measurement the desired outcome of the measurement.
+     * @return The outcome of the measurement
+     */
+    bool ForceMeasureX(QubitSize q, bool measurement);
+
+    /**
+     * Forces a non-deterministic measurement in the Z basis to have a certain outcome
+     * @param q Qubit index.
+     * @param measurement the desired outcome of the measurement.
+     * @return The outcome of the measurement
+     */
+    bool ForceMeasureZ(QubitSize q, bool measurement);
 
     /**
      * Apply a Hadamard gate to qubit q.
@@ -101,6 +132,18 @@ class InverseTableau {
     void ApplyS(QubitSize q) noexcept;
 
     /**
+     * Apply an S† gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplySdg(QubitSize q) noexcept;
+
+    /**
+     * Apply the identity gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplyI(QubitSize q) noexcept;
+
+    /**
      * Apply a Pauli X gate to qubit q.
      * @param q Qubit index.
      */
@@ -113,11 +156,31 @@ class InverseTableau {
     void ApplyZ(QubitSize q) noexcept;
 
     /**
+     * Apply a Pauli Y gate to qubit q.
+     * @param q Qubit index.
+     */
+    void ApplyY(QubitSize q) noexcept;
+
+    /**
      * Apply a controlled X gate with control c and target t.
      * @param c Control qubit index.
      * @param t Target qubit index.
      */
     void ApplyCx(QubitSize c, QubitSize t) noexcept;
+
+    /**
+     * Apply a controlled Z gate with control c and target t.
+     * @param c Control qubit index.
+     * @param t Target qubit index.
+     */
+    void ApplyCz(QubitSize c, QubitSize t) noexcept;
+
+    /**
+     * Apply a controlled Y gate with control c and target t.
+     * @param c Control qubit index.
+     * @param t Target qubit index.
+     */
+    void ApplyCy(QubitSize c, QubitSize t) noexcept;
 
     /**
      * Print the active generators' X components, Z components, and signs to standard output.
@@ -234,7 +297,23 @@ class InverseTableau {
      * @param basis Generator basis.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool Measure(QubitSize q, Basis basis);
+    bool Measure(QubitSize q, Basis basis);
+
+    /**
+     * Checks wether measuring in the selected basis will be a deterministic measurement
+     * @param q Qubit index.
+     * @param basis the basis to measure in.
+     * @return the outcome: true if the measurement will be deterministic, false otherwise
+     */
+    [[nodiscard]] bool IsDeterministicMeasure(QubitSize q, Basis basis);
+
+    /**
+     * Forces a non-deterministic measurement in the selected basis to have a deterministic outcome
+     * @param q Qubit index.
+     * @param basis the basis to measure in.
+     * @return the ourcome of the measurement
+     */
+    bool ForceMeasure(QubitSize q, bool measurement, Basis basis);
 
     /**
      * Apply measurement cleanup to every active generator and update their signs.
@@ -256,9 +335,11 @@ class InverseTableau {
      * The generator for qubit q in basis b must contain an X component.
      * @param q Qubit index.
      * @param b Measurement basis.
+     * @param measurement_opt Force measurement to a specific outcome if not std::nullopt.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    [[nodiscard]] bool RandomMeasurement(QubitSize q, Basis b);
+    bool RandomMeasurement(QubitSize q, Basis b,
+                           std::optional<bool> measurement_opt = std::nullopt);
 };
 
 }  // namespace stabaal::detail
