@@ -52,7 +52,7 @@ void PrintTiming(const std::string_view name, std::vector<double>& samples,
               << operations / median / 1e6 << " million ops/s\n";
 }
 
-enum class GateKind : std::uint8_t { kH, kX, kS, kSdg, kZ, kY, kCx, kCz, kCy };
+enum class GateKind : std::uint8_t { kH, kX, kS, kSdg, kSx, kZ, kY, kCx, kCz, kCy };
 
 struct Gate {
     GateKind kind;
@@ -81,8 +81,8 @@ int main(int argc, char** argv) {
         std::array<std::vector<double>, 3> times{};
         auto& [gate_times, measure_z_times, copy_times]{times};
         for (auto& samples : times) samples.reserve(repeats);
-        constexpr std::array<std::string_view, 9> gate_names{"H", "X",  "S",  "Sdg", "Z",
-                                                             "Y", "Cx", "Cz", "Cy"};
+        constexpr std::array<std::string_view, 10> gate_names{"H", "X", "S",  "Sdg", "Sx",
+                                                              "Z", "Y", "Cx", "Cz",  "Cy"};
         std::array<std::vector<double>, gate_names.size()> individual_gate_times{};
         for (auto& samples : individual_gate_times) samples.reserve(repeats);
         std::size_t memory_bytes{0};
@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
                 auto target{qubit(rng)};
                 if (target == q) target = (q + 1) % qubits;
                 circuit.push_back(
-                    {static_cast<GateKind>(rng() % (qubits == 1 ? 6 : 9)), q, target});
+                    {static_cast<GateKind>(rng() % (qubits == 1 ? 7 : 10)), q, target});
             }
 
             BenchSimulator simulator{qubits};
@@ -113,6 +113,9 @@ int main(int argc, char** argv) {
                         break;
                     case GateKind::kSdg:
                         simulator.Sdg(gate.q);
+                        break;
+                    case GateKind::kSx:
+                        simulator.Sx(gate.q);
                         break;
                     case GateKind::kZ:
                         simulator.Z(gate.q);
@@ -160,16 +163,19 @@ int main(int argc, char** argv) {
             time_gate([](auto& sim, const Gate& gate) { sim.H(gate.q); }, individual_gate_times[0]);
             time_gate([](auto& sim, const Gate& gate) { sim.X(gate.q); }, individual_gate_times[1]);
             time_gate([](auto& sim, const Gate& gate) { sim.S(gate.q); }, individual_gate_times[2]);
-            time_gate([](auto& sim, const Gate& gate) { sim.S(gate.q); }, individual_gate_times[3]);
-            time_gate([](auto& sim, const Gate& gate) { sim.Z(gate.q); }, individual_gate_times[4]);
-            time_gate([](auto& sim, const Gate& gate) { sim.Y(gate.q); }, individual_gate_times[5]);
+            time_gate([](auto& sim, const Gate& gate) { sim.Sdg(gate.q); },
+                      individual_gate_times[3]);
+            time_gate([](auto& sim, const Gate& gate) { sim.Sx(gate.q); },
+                      individual_gate_times[4]);
+            time_gate([](auto& sim, const Gate& gate) { sim.Z(gate.q); }, individual_gate_times[5]);
+            time_gate([](auto& sim, const Gate& gate) { sim.Y(gate.q); }, individual_gate_times[6]);
             if (qubits > 1) {
                 time_gate([](auto& sim, const Gate& gate) { sim.Cx(gate.q, gate.target); },
-                          individual_gate_times[6]);
-                time_gate([](auto& sim, const Gate& gate) { sim.Cz(gate.q, gate.target); },
                           individual_gate_times[7]);
-                time_gate([](auto& sim, const Gate& gate) { sim.Cy(gate.q, gate.target); },
+                time_gate([](auto& sim, const Gate& gate) { sim.Cz(gate.q, gate.target); },
                           individual_gate_times[8]);
+                time_gate([](auto& sim, const Gate& gate) { sim.Cy(gate.q, gate.target); },
+                          individual_gate_times[9]);
             }
         }
 
