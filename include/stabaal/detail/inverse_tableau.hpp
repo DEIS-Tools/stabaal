@@ -70,6 +70,12 @@ class InverseTableau {
     void Add();
 
     /**
+     * Discards qubit q from the tableau.
+     * @param q Qubit index.
+     */
+    void Discard(QubitSize q);
+
+    /**
      * Measure qubit q in the X basis and update the state to match the outcome.
      * @param q Qubit index.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.

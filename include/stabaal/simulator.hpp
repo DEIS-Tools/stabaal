@@ -17,11 +17,17 @@ namespace stabaal {
 template <typename T>
 concept SimulationBackend =
     std::constructible_from<T, QubitSize> &&
-    requires(T& backend, const T& const_backend, QubitSize q, QubitSize c, QubitSize t) {
+    requires(T& backend, const T& const_backend, QubitSize q, QubitSize c, QubitSize t,
+             bool measurement) {
         { const_backend.NumQubits() } noexcept -> std::same_as<QubitSize>;
         { backend.Add() } -> std::same_as<void>;
+        { backend.Discard(q) } -> std::same_as<void>;
         { backend.MeasureX(q) } -> std::same_as<bool>;
         { backend.MeasureZ(q) } -> std::same_as<bool>;
+        { backend.IsDeterministicMeasureX(q) } -> std::same_as<bool>;
+        { backend.IsDeterministicMeasureZ(q) } -> std::same_as<bool>;
+        { backend.ForceMeasureX(q, measurement) } -> std::same_as<bool>;
+        { backend.ForceMeasureZ(q, measurement) } -> std::same_as<bool>;
         { backend.ApplyH(q) } -> std::same_as<void>;
         { backend.ApplyS(q) } -> std::same_as<void>;
         { backend.ApplySdg(q) } -> std::same_as<void>;
@@ -46,6 +52,9 @@ class Simulator {
      */
     explicit Simulator(QubitSize num_qubits) : backend_(num_qubits) {}
 
+    /** Return the number of active qubits. */
+    [[nodiscard]] QubitSize NumQubits() const noexcept { return backend_.NumQubits(); }
+
     /**
      * Append a qubit initialized to |0>, growing storage if needed.
      * @throws std::length_error If the qubit count would exceed the maximum QubitSize.
@@ -56,6 +65,15 @@ class Simulator {
         }
 
         backend_.Add();
+    }
+
+    /**
+     * Discards qubit q from the tableau.
+     * @param q Qubit index.
+     */
+    void Discard(QubitSize q) {
+        CheckQubit(q);
+        backend_.Discard(q);
     }
 
     /**
@@ -76,6 +94,30 @@ class Simulator {
     bool MeasureZ(QubitSize q) {
         CheckQubit(q);
         return backend_.MeasureZ(q);
+    }
+
+    /** Return whether measuring qubit q in the X basis is deterministic. */
+    [[nodiscard]] bool IsDeterministicMeasureX(QubitSize q) {
+        CheckQubit(q);
+        return backend_.IsDeterministicMeasureX(q);
+    }
+
+    /** Return whether measuring qubit q in the Z basis is deterministic. */
+    [[nodiscard]] bool IsDeterministicMeasureZ(QubitSize q) {
+        CheckQubit(q);
+        return backend_.IsDeterministicMeasureZ(q);
+    }
+
+    /** Force a non-deterministic X measurement of qubit q to the given outcome. */
+    bool ForceMeasureX(QubitSize q, bool measurement) {
+        CheckQubit(q);
+        return backend_.ForceMeasureX(q, measurement);
+    }
+
+    /** Force a non-deterministic Z measurement of qubit q to the given outcome. */
+    bool ForceMeasureZ(QubitSize q, bool measurement) {
+        CheckQubit(q);
+        return backend_.ForceMeasureZ(q, measurement);
     }
 
     /**

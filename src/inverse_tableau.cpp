@@ -181,6 +181,10 @@ void InverseTableau::Add() {
     Generator(last, Basis::kHadamard).SetX(last);
 }
 
+void InverseTableau::Discard(QubitSize q) {
+    // TODO: implement me
+}
+
 void InverseTableau::CleanUp(const QubitSize pivot, const ConstBitWordSpan targets,
                              const bool apply_s_dagger) noexcept {
     for (std::size_t basis{0}; basis < kBasisCount; ++basis) {

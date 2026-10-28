@@ -540,14 +540,20 @@ TEST_CASE("Simulator rejects invalid gate and measurement indices", "[simulator]
         CHECK_THROWS_AS(tableau.Cy(0, q), std::out_of_range);
         CHECK_THROWS_AS(tableau.MeasureX(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.MeasureZ(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.IsDeterministicMeasureX(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.IsDeterministicMeasureZ(q), std::out_of_range);
+        CHECK_THROWS_AS(tableau.ForceMeasureX(q, false), std::out_of_range);
+        CHECK_THROWS_AS(tableau.ForceMeasureZ(q, true), std::out_of_range);
     }
     for (QubitSize q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
 }
 
 TEST_CASE("Simulator validation follows growth and copying", "[simulator][bounds][copy]") {
     Simulator<> simulator{0};
+    CHECK(simulator.NumQubits() == 0);
     CHECK_THROWS_AS(simulator.X(0), std::out_of_range);
     simulator.Add();
+    CHECK(simulator.NumQubits() == 1);
     simulator.X(0);
     CHECK(simulator.MeasureZ(0));
     CHECK_THROWS_AS(simulator.X(1), std::out_of_range);
