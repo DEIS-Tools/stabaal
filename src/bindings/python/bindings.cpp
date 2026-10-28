@@ -22,7 +22,7 @@ PYBIND11_MODULE(stabaal, m) {
             .def("h", &InverseSim::H, py::arg("q"), "Apply a Hadamard gate to qubit q.")
             .def("s", &InverseSim::S, py::arg("q"), "Apply an S gate to qubit q.")
             .def("sdg", &InverseSim::Sdg, py::arg("q"), "Apply an S† gate to qubit q.")
-            .def("sx", &InverseStim::Sx, py::arg("q"), "Apply an √X gate to qubit q.")
+            .def("sx", &InverseSim::Sx, py::arg("q"), "Apply an √X gate to qubit q.")
             .def("i", &InverseSim::I, py::arg("q"), "Apply the identity gate to qubit q.")
             .def("x", &InverseSim::X, py::arg("q"), "Apply a X gate to qubit q.")
             .def("z", &InverseSim::Z, py::arg("q"), "Apply a Z gate to qubit q.")
