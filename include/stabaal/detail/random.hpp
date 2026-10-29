@@ -15,18 +15,21 @@ class Sfc64 {
     using result_type = std::uint64_t;
 
     // NOLINTNEXTLINE(readability-identifier-naming): required by uniform_random_bit_generator.
-    static constexpr result_type min() noexcept { return 0; }
+    [[nodiscard]] static constexpr result_type min() noexcept { return 0; }
     // NOLINTNEXTLINE(readability-identifier-naming): required by uniform_random_bit_generator.
-    static constexpr result_type max() noexcept { return std::numeric_limits<result_type>::max(); }
+    [[nodiscard]] static constexpr result_type max() noexcept {
+        return std::numeric_limits<result_type>::max();
+    }
 
     Sfc64() : Sfc64(std::random_device{}()) {}
-    explicit Sfc64(std::uint64_t seed) : m_a_{seed}, m_b_{seed}, m_c_{seed}, m_counter_{seed} {
+    explicit Sfc64(const std::uint64_t seed) noexcept
+        : m_a_{seed}, m_b_{seed}, m_c_{seed}, m_counter_{seed} {
         for (auto i = 0; i < 12; ++i) {
-            operator()();
+            static_cast<void>(operator()());
         }
     }
 
-    uint64_t operator()() noexcept {
+    [[nodiscard]] uint64_t operator()() noexcept {
         auto const tmp = m_a_ + m_b_ + m_counter_++;
         m_a_ = m_b_ ^ (m_b_ >> right_shift_);
         m_b_ = m_c_ + (m_c_ << left_shift_);
@@ -49,7 +52,7 @@ template <std::unsigned_integral U>
 class Random {
    public:
     template <std::uniform_random_bit_generator Rng>
-    bool operator()(Rng& rng) {
+    [[nodiscard]] bool operator()(Rng& rng) {
         if (rand_vals_ == 1) [[unlikely]] {
             rand_vals_ = std::uniform_int_distribution<U>{}(rng) | sentinel_mask;
         }
