@@ -2,7 +2,7 @@ SOURCES := $(shell find src -path src/bindings -prune -o -type f -name '*.cpp' -
 FORMAT_FILES := $(shell find src include tests benchmarks -type f \( -name '*.cpp' -o -name '*.hpp' \))
 BENCH_ARGS ?= 2048 500000 50
 
-.PHONY: release debug flamegraph lint format dry-format test
+.PHONY: release debug flamegraph lint format dry-format test bench-comp
 
 release debug:
 	cmake --workflow --preset $@
@@ -26,3 +26,7 @@ dry-format:
 test:
 	cmake --workflow --preset $@
 	build/test/stabaal_tests
+
+bench-comp:
+	cmake --workflow --preset bench-comp
+	build/bench-comp/stabaal_bench_comp $(BENCH_ARGS)

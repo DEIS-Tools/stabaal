@@ -636,4 +636,85 @@ TEST_CASE("ForceMeasureX works correctly") {
     }
 }
 
+TEST_CASE("Forced measurements return the forced outcome after phase gates",
+          "[inverse_tableau][measure]") {
+    // S and Sdg leave |0> unchanged but put a sign on the X generator, which used to invert
+    // the forced outcome.
+    const auto gate{GENERATE(0, 1, 2)};  // none, S, Sdg
+    const bool x_basis{GENERATE(false, true)};
+    const bool outcome{GENERATE(false, true)};
+    CAPTURE(gate, x_basis, outcome);
+    InverseTableau t{1};
+    if (!x_basis) t.ApplyH(0);
+    if (gate == 1) t.ApplyS(0);
+    if (gate == 2) t.ApplySdg(0);
+    CHECK((x_basis ? t.ForceMeasureX(0, outcome) : t.ForceMeasureZ(0, outcome)) == outcome);
+    CHECK((x_basis ? t.MeasureX(0) : t.MeasureZ(0)) == outcome);
+}
+
+TEST_CASE("Y eigenstates measure deterministically in the Y basis", "[simulator][MeasureY]") {
+    const auto n{GENERATE(QubitSize{1}, QubitSize{64}, QubitSize{65}, QubitSize{129})};
+    const bool negative{GENERATE(false, true)};
+    const auto q{n - 1};
+    CAPTURE(n, negative);
+    Simulator<> sim{n};
+    // |0> -H-> |+> -S-> |+i>, and |1> -H-> |-> -S-> |-i>.
+    if (negative) sim.X(q);
+    sim.H(q);
+    sim.S(q);
+    CHECK(sim.IsDeterministicMeasureY(q));
+    CHECK_FALSE(sim.IsDeterministicMeasureX(q));
+    CHECK_FALSE(sim.IsDeterministicMeasureZ(q));
+    CHECK(sim.MeasureY(q) == negative);
+    CHECK(sim.MeasureY(q) == negative);
+    if (q != 0) CHECK_FALSE(sim.MeasureZ(0));
+}
+
+TEST_CASE("Y measurements sample both outcomes and remain repeatable", "[simulator][MeasureY]") {
+    const bool x_basis{GENERATE(false, true)};  // start in an X or a Z eigenstate
+    std::set<bool> seen{};
+    for (std::uint32_t trial{0}; trial < 64; ++trial) {
+        Simulator<> sim{1};
+        if (x_basis) sim.H(0);
+        CHECK_FALSE(sim.IsDeterministicMeasureY(0));
+        const bool result{sim.MeasureY(0)};
+        seen.insert(result);
+        CHECK(sim.IsDeterministicMeasureY(0));
+        CHECK(sim.MeasureY(0) == result);
+    }
+    CHECK(seen.size() == 2);
+}
+
+TEST_CASE("ForceMeasureY returns the forced outcome and collapses to it", "[simulator][MeasureY]") {
+    const auto gate{GENERATE(0, 1, 2, 3)};  // none, S, Sdg, H
+    const bool outcome{GENERATE(false, true)};
+    CAPTURE(gate, outcome);
+    Simulator<> sim{2};
+    if (gate == 1) sim.S(0);
+    if (gate == 2) sim.Sdg(0);
+    if (gate == 3) sim.H(0);
+    CHECK(sim.ForceMeasureY(0, outcome) == outcome);
+    CHECK(sim.MeasureY(0) == outcome);
+    CHECK_FALSE(sim.MeasureZ(1));
+}
+
+TEST_CASE("Bell state Y measurements are anticorrelated", "[simulator][MeasureY][entangle]") {
+    // |00> + |11> is stabilized by -YY, so the two Y outcomes always differ.
+    const bool reverse_order{GENERATE(false, true)};
+    std::set<bool> seen{};
+    for (std::uint32_t trial{0}; trial < 64; ++trial) {
+        Simulator<> sim{2};
+        sim.H(0);
+        sim.Cx(0, 1);
+        const QubitSize first{reverse_order ? 1U : 0U};
+        const QubitSize second{1 - first};
+        CHECK_FALSE(sim.IsDeterministicMeasureY(first));
+        const bool result{sim.MeasureY(first)};
+        seen.insert(result);
+        CHECK(sim.IsDeterministicMeasureY(second));
+        CHECK(sim.MeasureY(second) != result);
+    }
+    CHECK(seen.size() == 2);
+}
+
 }  // namespace stabaal::detail

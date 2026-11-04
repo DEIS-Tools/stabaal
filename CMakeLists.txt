@@ -23,6 +23,26 @@ if(BUILD_BENCHMARKS)
     target_link_libraries(stabaal_bench PRIVATE stabaal)
 endif()
 
+option(BUILD_COMP_BENCHMARK "Build the comparative benchmark against Stim" OFF)
+if(BUILD_COMP_BENCHMARK)
+    FetchContent_Declare(
+        stim
+        GIT_REPOSITORY https://github.com/quantumlib/Stim.git
+        GIT_TAG        v1.15.0
+        GIT_SHALLOW    TRUE
+        EXCLUDE_FROM_ALL
+        SYSTEM
+    )
+    # Stim defaults to -march=native, which ties the binary to the build machine's CPU.
+    set(SIMD_WIDTH 128)
+    FetchContent_MakeAvailable(stim)
+
+    find_package(Threads REQUIRED)
+
+    add_executable(stabaal_bench_comp benchmarks/bench_comp.cpp)
+    target_link_libraries(stabaal_bench_comp PRIVATE stabaal libstim Threads::Threads)
+endif()
+
 option(BUILD_PYTHON_BINDINGS "Build python bindings" OFF)
 if(BUILD_PYTHON_BINDINGS)
     set_target_properties(stabaal PROPERTIES POSITION_INDEPENDENT_CODE ON)
@@ -65,7 +85,7 @@ if(BUILD_TESTING)
     catch_discover_tests(stabaal_tests)
 endif()
 
-foreach(target IN ITEMS stabaal stabaal_bench stabaal_python stabaal_tests)
+foreach(target IN ITEMS stabaal stabaal_bench stabaal_bench_comp stabaal_python stabaal_tests)
     if(TARGET ${target})
         target_compile_options(${target} PRIVATE
             "$<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>")

@@ -37,13 +37,21 @@
         "CMAKE_CXX_FLAGS": "-fno-omit-frame-pointer",
         "BUILD_BENCHMARKS": true
       }
+    },
+    {
+      "name": "bench-comp",
+      "inherits": "profile",
+      "cacheVariables": {
+        "BUILD_COMP_BENCHMARK": true
+      }
     }
   ],
   "buildPresets": [
     { "name": "debug", "configurePreset": "debug" },
     { "name": "release", "configurePreset": "release" },
     { "name": "profile", "configurePreset": "profile" },
-    { "name": "test", "configurePreset": "test" }
+    { "name": "test", "configurePreset": "test" },
+    { "name": "bench-comp", "configurePreset": "bench-comp" }
   ],
   "workflowPresets": [
     {
@@ -72,6 +80,13 @@
       "steps": [
         { "type": "configure", "name": "test" },
         { "type": "build", "name": "test" }
+      ]
+    },
+    {
+      "name": "bench-comp",
+      "steps": [
+        { "type": "configure", "name": "bench-comp" },
+        { "type": "build", "name": "bench-comp" }
       ]
     }
   ]

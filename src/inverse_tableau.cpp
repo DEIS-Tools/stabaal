@@ -232,7 +232,7 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b,
 
     bool p{false};
     if (measurement_opt) {
-        p = measurement_opt.value();
+        p = measurement_opt.value() != Sign(q, b);
     } else {
         p = std::bernoulli_distribution{0.5}(RandomEngine());
     }

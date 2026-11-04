@@ -57,6 +57,37 @@ class Simulator {
 
         backend_.Add();
     }
+    
+      /**
+     * Checks wether measuring qubit q in the X basis will be a deterministic measurement
+     * @param q Qubit index.
+     * @return The outcome: true if the measurement will be deterministic, false otherwise
+     */
+    bool IsDeterministicMeasureX(QubitSize q) {
+        CheckQubit(q);
+        return backend_.IsDeterministicMeasureX(q);
+    }
+
+    /**
+     * Checks wether measuring qubit q in the Z basis will be a deterministic measurement
+     * @param q Qubit index.
+     * @return The outcome: true if the measurement will be deterministic, false otherwise
+     */
+    bool IsDeterministicMeasureZ(QubitSize q) {
+        CheckQubit(q);
+        return backend_.IsDeterministicMeasureZ(q);
+    }
+
+
+     /**
+     * Force measure of the bool value on qubit q in the X basis and update the state to match the outcome.
+     * @param q Qubit index.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool ForceMeasureX(QubitSize q, bool measurement) {
+        CheckQubit(q);
+        return backend_.ForceMeasureX(q, measurement);
+    }
 
     /**
      * Measure qubit q in the X basis and update the state to match the outcome.
@@ -68,6 +99,16 @@ class Simulator {
         return backend_.MeasureX(q);
     }
 
+      /**
+     * Force measure of the bool value on qubit q in the Z basis and update the state to match the outcome.
+     * @param q Qubit index.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool ForceMeasureZ(QubitSize q, bool measurement) {
+        CheckQubit(q);
+        return backend_.ForceMeasureZ(q, measurement);
+    }
+
     /**
      * Measure qubit q in the Z basis and update the state to match the outcome.
      * @param q Qubit index.
@@ -76,6 +117,47 @@ class Simulator {
     bool MeasureZ(QubitSize q) {
         CheckQubit(q);
         return backend_.MeasureZ(q);
+    }
+
+    // Y is measured as X in the frame rotated by Sdg (Sdg maps Y to +X), then rotated back with S.
+
+    /**
+     * Checks wether measuring qubit q in the Y basis will be a deterministic measurement
+     * @param q Qubit index.
+     * @return The outcome: true if the measurement will be deterministic, false otherwise
+     */
+    bool IsDeterministicMeasureY(QubitSize q) {
+        CheckQubit(q);
+        backend_.ApplySdg(q);
+        const bool deterministic{backend_.IsDeterministicMeasureX(q)};
+        backend_.ApplyS(q);
+        return deterministic;
+    }
+
+    /**
+     * Force measure of the bool value on qubit q in the Y basis and update the state to match the outcome.
+     * @param q Qubit index.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool ForceMeasureY(QubitSize q, bool measurement) {
+        CheckQubit(q);
+        backend_.ApplySdg(q);
+        const bool result{backend_.ForceMeasureX(q, measurement)};
+        backend_.ApplyS(q);
+        return result;
+    }
+
+    /**
+     * Measure qubit q in the Y basis and update the state to match the outcome.
+     * @param q Qubit index.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool MeasureY(QubitSize q) {
+        CheckQubit(q);
+        backend_.ApplySdg(q);
+        const bool result{backend_.MeasureX(q)};
+        backend_.ApplyS(q);
+        return result;
     }
 
     /**
