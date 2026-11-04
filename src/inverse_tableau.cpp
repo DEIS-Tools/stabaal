@@ -9,13 +9,13 @@
 #include <limits>
 #include <memory>
 #include <optional>
-#include <random>
 #include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include "stabaal/detail/bit_ops.hpp"
 #include "stabaal/detail/pauli_string_view.hpp"
+#include "stabaal/detail/random.hpp"
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {
@@ -32,11 +32,6 @@ constexpr QubitSize kGrowthDivisor{4};
 // The complete QubitSize range needs up to twice its bit width for storage sizes.
 static_assert(std::numeric_limits<std::size_t>::digits >=
               2 * std::numeric_limits<QubitSize>::digits);
-
-[[nodiscard]] std::mt19937& RandomEngine() {
-    static thread_local std::mt19937 engine{std::random_device{}()};
-    return engine;
-}
 
 [[nodiscard]] bool Phase(const PhaseExponent exponent, const bool a_sign, const bool b_sign,
                          const PhaseExponent phase_rule) noexcept {
@@ -235,8 +230,11 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b,
     if (measurement_opt) {
         p = measurement_opt.value();
     } else {
-        p = std::bernoulli_distribution{0.5}(RandomEngine());
+        static thread_local Sfc64 engine;
+        static thread_local Random<Sfc64::result_type> random;
+        p = random(engine);
     }
+
     Collapse(pivot, p);
     return Sign(q, b);
 }
