@@ -9,12 +9,13 @@
 #include <limits>
 #include <memory>
 #include <optional>
-#include <random>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
 #include "stabaal/detail/bit_ops.hpp"
 #include "stabaal/detail/pauli_string_view.hpp"
+#include "stabaal/detail/random.hpp"
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {
@@ -31,11 +32,6 @@ constexpr QubitSize kGrowthDivisor{4};
 // The complete QubitSize range needs up to twice its bit width for storage sizes.
 static_assert(std::numeric_limits<std::size_t>::digits >=
               2 * std::numeric_limits<QubitSize>::digits);
-
-[[nodiscard]] std::mt19937& RandomEngine() {
-    static thread_local std::mt19937 engine{std::random_device{}()};
-    return engine;
-}
 
 [[nodiscard]] bool Phase(const PhaseExponent exponent, const bool a_sign, const bool b_sign,
                          const PhaseExponent phase_rule) noexcept {
@@ -238,8 +234,11 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b,
     if (measurement_opt) {
         p = measurement_opt.value();
     } else {
-        p = std::bernoulli_distribution{0.5}(RandomEngine());
+        static thread_local Sfc64 engine;
+        static thread_local Random<Sfc64::result_type> random;
+        p = random(engine);
     }
+
     Collapse(pivot, p);
     return Sign(q, b);
 }
@@ -300,7 +299,7 @@ void InverseTableau::ApplyS(const QubitSize q) noexcept {
     SetBit(hadamard_signs, q, Phase(exponent, hadamard_sign, computational_sign, 3));
 }
 
-void InverseTableau::ApplySdg(QubitSize q) noexcept {
+void InverseTableau::ApplySdg(const QubitSize q) noexcept {
     assert(q < num_qubits_);
 
     const auto computational{PhysicalBasis(q, Basis::kComputational)};
@@ -314,6 +313,13 @@ void InverseTableau::ApplySdg(QubitSize q) noexcept {
             .XorWithPhase(PhysicalGenerator(q, computational), num_qubits_),
     };
     SetBit(hadamard_signs, q, Phase(exponent, hadamard_sign, computational_sign, 1));
+}
+
+void InverseTableau::ApplySx(const QubitSize q) noexcept {
+    assert(q < num_qubits_);
+    ApplyH(q);
+    ApplyS(q);
+    ApplyH(q);
 }
 
 void InverseTableau::ApplyI([[maybe_unused]] const QubitSize q) noexcept {}
@@ -415,6 +421,63 @@ void InverseTableau::Print() const {
     }
 
     std::cout << '\n';
+}
+
+InverseTableau::GateInformation InverseTableau::GetGateInformation(UnaryGateFunction gate) {
+    if (gate == &InverseTableau::ApplyX) {
+        return {"X gate", "Applies the X gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyY) {
+        return {"Y gate", "Applies the Y gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyZ) {
+        return {"Z gate", "Applies the Z gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyH) {
+        return {"Hadamard gate", "Applies the Hadamard gate", 1};
+    }
+    if (gate == &InverseTableau::ApplySx) {
+        return {"Sx gate", "Applies the Square Root X gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyS) {
+        return {"S gate", "Applies the S gate", 1};
+    }
+    if (gate == &InverseTableau::ApplySdg) {
+        return {"S-dagger gate", "Applies the S-Dagger gate", 1};
+    }
+    if (gate == &InverseTableau::ApplyI) {
+        return {"Identity gate", "Applies the Identity gate", 1};
+    };
+    throw std::range_error("Function is not a supported gate function");
+}
+
+InverseTableau::GateInformation InverseTableau::GetGateInformation(BinaryGateFunction gate) {
+    if (gate == &InverseTableau::ApplyCx) {
+        return {"Control-X gate", "Applies the Control-X gate", 2};
+    }
+    if (gate == &InverseTableau::ApplyCy) {
+        return {"Control-Y gate", "Applies the Control-Y gate", 2};
+    }
+    if (gate == &InverseTableau::ApplyCz) {
+        return {"Control-Z gate", "Applies the Control-Z gate", 2};
+    };
+    throw std::range_error("Function is not a supported gate function");
+}
+
+std::array<InverseTableau::UnaryGateFunction, 8> InverseTableau::SupportedUnaryGates() {
+    return std::array<InverseTableau::UnaryGateFunction, 8>{
+        &InverseTableau::ApplyX,   &InverseTableau::ApplyY,  &InverseTableau::ApplyZ,
+        &InverseTableau::ApplyH,   &InverseTableau::ApplySx, &InverseTableau::ApplyS,
+        &InverseTableau::ApplySdg, &InverseTableau::ApplyI,
+    };
+}
+
+std::array<InverseTableau::BinaryGateFunction, 3> InverseTableau::SupportedBinaryGates() {
+    return std::array<InverseTableau::BinaryGateFunction, 3>{
+        &InverseTableau::ApplyCx,
+        &InverseTableau::ApplyCy,
+        &InverseTableau::ApplyCz,
+    };
 }
 
 }  // namespace stabaal::detail

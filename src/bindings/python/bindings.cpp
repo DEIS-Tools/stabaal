@@ -23,7 +23,8 @@ PYBIND11_MODULE(stabaal, m) {
             .def("discard", &InverseSim::Discard, py::arg("q"), "Discard qubit q from the tableau.")
             .def("h", &InverseSim::H, py::arg("q"), "Apply a Hadamard gate to qubit q.")
             .def("s", &InverseSim::S, py::arg("q"), "Apply an S gate to qubit q.")
-            .def("sdg", &InverseSim::Sdg, py::arg("q"), "Apply an S dagger gate to qubit q.")
+            .def("sdg", &InverseSim::Sdg, py::arg("q"), "Apply an S† gate to qubit q.")
+            .def("sx", &InverseSim::Sx, py::arg("q"), "Apply an √X gate to qubit q.")
             .def("i", &InverseSim::I, py::arg("q"), "Apply the identity gate to qubit q.")
             .def("x", &InverseSim::X, py::arg("q"), "Apply a X gate to qubit q.")
             .def("z", &InverseSim::Z, py::arg("q"), "Apply a Z gate to qubit q.")
@@ -38,10 +39,10 @@ PYBIND11_MODULE(stabaal, m) {
                  "Measure qubit q in Hadamard basis.")
             .def("measure_z", &InverseSim::MeasureZ, py::arg("q"),
                  "Measure qubit q in computational basis.")
-            .def("is_deterministic_measure_x", &InverseSim::IsDeterministicMeasureX,
-                 py::arg("q"), "Return whether an X measurement is deterministic.")
-            .def("is_deterministic_measure_z", &InverseSim::IsDeterministicMeasureZ,
-                 py::arg("q"), "Return whether a Z measurement is deterministic.")
+            .def("is_deterministic_measure_x", &InverseSim::IsDeterministicMeasureX, py::arg("q"),
+                 "Return whether an X measurement is deterministic.")
+            .def("is_deterministic_measure_z", &InverseSim::IsDeterministicMeasureZ, py::arg("q"),
+                 "Return whether a Z measurement is deterministic.")
             .def("force_measure_x", &InverseSim::ForceMeasureX, py::arg("q"),
                  py::arg("measurement"), "Force a non-deterministic X measurement outcome.")
             .def("force_measure_z", &InverseSim::ForceMeasureZ, py::arg("q"),
