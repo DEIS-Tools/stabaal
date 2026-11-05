@@ -411,8 +411,8 @@ TEST_CASE("Print", "[inverse_tableau][Print]") {
         t.Print();
         CHECK(cap.ss.str() ==
               "\n    | x | z | r |"
-              "\nX0: | 1 | 0 | 0 |"
-              "\nZ0: | 0 | 1 | 0 |"
+              "\nX0 [a]: | 1 | 0 | 0 |"
+              "\nZ0 [a]: | 0 | 1 | 0 |"
               "\n");
     }
     SECTION("fresh 2-qubit tableau") {
@@ -421,10 +421,10 @@ TEST_CASE("Print", "[inverse_tableau][Print]") {
         t.Print();
         CHECK(cap.ss.str() ==
               "\n    | x x | z z | r |"
-              "\nX0: | 1 0 | 0 0 | 0 |"
-              "\nX1: | 0 1 | 0 0 | 0 |"
-              "\nZ0: | 0 0 | 1 0 | 0 |"
-              "\nZ1: | 0 0 | 0 1 | 0 |"
+              "\nX0 [a]: | 1 0 | 0 0 | 0 |"
+              "\nX1 [a]: | 0 1 | 0 0 | 0 |"
+              "\nZ0 [a]: | 0 0 | 1 0 | 0 |"
+              "\nZ1 [a]: | 0 0 | 0 1 | 0 |"
               "\n");
     }
     SECTION("sign column after X") {
@@ -434,8 +434,8 @@ TEST_CASE("Print", "[inverse_tableau][Print]") {
         t.Print();
         CHECK(cap.ss.str() ==
               "\n    | x | z | r |"
-              "\nX0: | 1 | 0 | 0 |"
-              "\nZ0: | 0 | 1 | 1 |"
+              "\nX0 [a]: | 1 | 0 | 0 |"
+              "\nZ0 [a]: | 0 | 1 | 1 |"
               "\n");
     }
     SECTION("rows swapped after H") {
@@ -445,9 +445,24 @@ TEST_CASE("Print", "[inverse_tableau][Print]") {
         t.Print();
         CHECK(cap.ss.str() ==
               "\n    | x | z | r |"
-              "\nX0: | 0 | 1 | 0 |"
-              "\nZ0: | 1 | 0 | 0 |"
+              "\nX0 [a]: | 0 | 1 | 0 |"
+              "\nZ0 [a]: | 1 | 0 | 0 |"
               "\n");
+    }
+    SECTION("discarded slots show their status") {
+        InverseTableau t{4};
+        t.ApplyH(0);
+        t.ApplyCx(0, 1);
+        t.Discard(1);
+        t.Discard(3);
+        CoutCapture cap{};
+        t.Print();
+        const auto output{cap.ss.str()};
+        CHECK(output.find("X0 [a]:") != std::string::npos);
+        CHECK(output.find("X1 [p]:") != std::string::npos);
+        CHECK(output.find("X3 [†]:") != std::string::npos);
+        CHECK(output.find("Z1 [p]:") != std::string::npos);
+        CHECK(output.find("Z3 [†]:") != std::string::npos);
     }
 }
 
