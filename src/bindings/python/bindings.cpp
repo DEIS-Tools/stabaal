@@ -18,11 +18,9 @@ PYBIND11_MODULE(stabaal, m) {
                                "Stabilizer simulator using an inverse tableau backend.")
             .def(py::init<stabaal::QubitSize>(), py::arg("num_qubits"),
                  "Create a simulator with all qubits initialized to |0>.")
-            .def("add", &InverseSim::Add,
-                 "Allocate a qubit initialized to |0> and return its ID.")
+            .def("add", &InverseSim::Add, "Allocate a qubit initialized to |0> and return its id.")
             .def("num_qubits", &InverseSim::NumQubits, "Return the number of active qubits.")
-            .def("discard", &InverseSim::Discard, py::arg("q"),
-                 "Discard qubit q.")
+            .def("discard", &InverseSim::Discard, py::arg("q"), "Discard qubit q.")
             .def("h", &InverseSim::H, py::arg("q"), "Apply a Hadamard gate to qubit q.")
             .def("s", &InverseSim::S, py::arg("q"), "Apply an S gate to qubit q.")
             .def("sdg", &InverseSim::Sdg, py::arg("q"), "Apply an S† gate to qubit q.")
@@ -45,8 +43,6 @@ PYBIND11_MODULE(stabaal, m) {
                  "Return whether an X measurement is deterministic.")
             .def("is_deterministic_measure_z", &InverseSim::IsDeterministicMeasureZ, py::arg("q"),
                  "Return whether a Z measurement is deterministic.")
-            .def("is_entangled", &InverseSim::IsEntangled, py::arg("q"),
-                 "Return whether qubit q is entangled with another qubit.")
             .def("force_measure_x", &InverseSim::ForceMeasureX, py::arg("q"),
                  py::arg("measurement"), "Force a non-deterministic X measurement outcome.")
             .def("force_measure_z", &InverseSim::ForceMeasureZ, py::arg("q"),

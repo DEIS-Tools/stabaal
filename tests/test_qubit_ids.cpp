@@ -15,7 +15,7 @@ namespace {
 using stabaal::QubitId;
 using stabaal::QubitSize;
 
-// Exercises ID routing without implementing quantum discard or compaction in the real backend.
+// Exercises id routing without implementing quantum discard or compaction in the real backend.
 struct IndexBackend {
     explicit IndexBackend(const QubitSize count)
         : alive(count, true), ids(count), active_count(count), next_id(count) {
@@ -67,9 +67,9 @@ struct IndexBackend {
 
     QubitSize Resolve(const QubitId id) const {
         const auto found{std::find(ids.begin(), ids.end(), id)};
-        if (found == ids.end()) throw std::out_of_range{"Qubit ID is not active"};
+        if (found == ids.end()) throw std::out_of_range{"Qubit id is not active"};
         const auto index{static_cast<QubitSize>(found - ids.begin())};
-        if (!alive[index]) throw std::out_of_range{"Qubit ID is not active"};
+        if (!alive[index]) throw std::out_of_range{"Qubit id is not active"};
         return index;
     }
 
@@ -96,10 +96,6 @@ struct IndexBackend {
     bool IsDeterministicMeasureZ(const QubitId q) const {
         Record(q);
         return false;
-    }
-    bool IsEntangled(const QubitId q) const {
-        Record(q);
-        return true;
     }
     bool ForceMeasureX(const QubitId q, const bool outcome) {
         Record(q);
@@ -152,7 +148,7 @@ TEST_CASE("New qubits return IDs that survive growth", "[simulator][ids]") {
     CHECK(sizeof(sim) == sizeof(backend));
 }
 
-TEST_CASE("Append-only simulators allocate no ID arrays", "[simulator][ids][memory]") {
+TEST_CASE("Append-only simulators allocate no id arrays", "[simulator][ids][memory]") {
     for (const auto n : {QubitSize{0}, QubitSize{1}, QubitSize{64}, QubitSize{129}}) {
         stabaal::Simulator<> sim{n};
         stabaal::detail::InverseTableau backend{n};
@@ -170,7 +166,7 @@ TEST_CASE("Append-only simulators allocate no ID arrays", "[simulator][ids][memo
     }
 }
 
-TEST_CASE("Reusing a middle storage slot gives a fresh ID for every operation",
+TEST_CASE("Reusing a middle storage slot gives a fresh id for every operation",
           "[simulator][ids]") {
     IndexSim sim{3};
     sim.Discard(1);
@@ -196,7 +192,6 @@ TEST_CASE("Reusing a middle storage slot gives a fresh ID for every operation",
     routes([&] { CHECK_FALSE(sim.MeasureZ(replacement)); });
     routes([&] { CHECK(std::as_const(sim).IsDeterministicMeasureX(replacement)); });
     routes([&] { CHECK_FALSE(std::as_const(sim).IsDeterministicMeasureZ(replacement)); });
-    routes([&] { CHECK(std::as_const(sim).IsEntangled(replacement)); });
     routes([&] { CHECK(sim.ForceMeasureX(replacement, true)); });
     routes([&] { CHECK_FALSE(sim.ForceMeasureZ(replacement, false)); });
     routes([&] { sim.Cx(replacement, 2); });
@@ -228,7 +223,6 @@ TEST_CASE("Reusing a middle storage slot gives a fresh ID for every operation",
     rejects([&] { sim.MeasureZ(1); });
     rejects([&] { static_cast<void>(sim.IsDeterministicMeasureX(1)); });
     rejects([&] { static_cast<void>(sim.IsDeterministicMeasureZ(1)); });
-    rejects([&] { static_cast<void>(sim.IsEntangled(1)); });
     rejects([&] { sim.ForceMeasureX(1, false); });
     rejects([&] { sim.ForceMeasureZ(1, false); });
     rejects([&] { sim.Cx(1, replacement); });
@@ -349,7 +343,7 @@ TEST_CASE("Add prefers reusable pure holes over retained purification slots",
     CHECK_THROWS_AS(sim.H(3), std::out_of_range);
 }
 
-TEST_CASE("Discarding all qubits allocates no ID metadata until physical reuse",
+TEST_CASE("Discarding all qubits contracts storage and never revives old IDs",
           "[simulator][ids][discard][memory]") {
     for (const auto n : {QubitSize{1}, QubitSize{64}, QubitSize{65}, QubitSize{129}}) {
         stabaal::Simulator<> sim{n};
@@ -358,19 +352,19 @@ TEST_CASE("Discarding all qubits allocates no ID metadata until physical reuse",
         for (QubitId q{n}; q > 0;) {
             --q;
             sim.Discard(q);
-            CHECK(sim.MemoryUsage() == original_memory);
+            CHECK(sim.MemoryUsage() <= original_memory);
             CHECK_THROWS_AS(sim.H(q), std::out_of_range);
         }
         CHECK(sim.NumQubits() == 0);
         auto copy{sim};
-        CHECK(copy.MemoryUsage() == original_memory);
+        CHECK(copy.MemoryUsage() == sizeof(sim));
         std::vector<QubitId> replacements;
         for (QubitId q{0}; q < n; ++q) {
             const auto id{sim.Add()};
             replacements.push_back(id);
             CHECK(id != q);
             CHECK(copy.Add() == id);
-            CHECK(sim.MemoryUsage() == original_memory + n * sizeof(std::uint32_t));
+            CHECK(sim.MemoryUsage() == copy.MemoryUsage());
             CHECK(sim.IsDeterministicMeasureZ(id));
             CHECK_FALSE(sim.MeasureZ(id));
             CHECK_THROWS_AS(sim.H(q), std::out_of_range);

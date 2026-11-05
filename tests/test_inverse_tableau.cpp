@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <bit>
 #include <catch2/catch_test_macros.hpp>
@@ -114,22 +115,6 @@ struct StateVector {
         CHECK(std::abs(expectation.imag()) < 1e-9);
         return expectation.real();
     }
-
-    [[nodiscard]] bool IsEntangled(const QubitSize q) const {
-        const auto mask{std::size_t{1} << q};
-        double p0{0};
-        double p1{0};
-        std::complex<double> coherence{0};
-        for (std::size_t i{0}; i < amplitudes.size(); ++i) {
-            if ((i & mask) != 0) continue;
-            const auto a{amplitudes[i]};
-            const auto b{amplitudes[i | mask]};
-            p0 += std::norm(a);
-            p1 += std::norm(b);
-            coherence += a * std::conj(b);
-        }
-        return p0 * p0 + p1 * p1 + 2 * std::norm(coherence) < 1 - 1e-9;
-    }
 };
 
 TEST_CASE("InverseTableau gates and measurements agree with state-vector simulation",
@@ -192,9 +177,6 @@ TEST_CASE("InverseTableau gates and measurements agree with state-vector simulat
                 reference.MeasureZ(q, result);
                 CHECK((x_basis ? tableau.MeasureX(q) : tableau.MeasureZ(q)) == result);
                 if (x_basis) reference.Apply(0, q, 0);
-            }
-            for (QubitSize observed{0}; observed < n; ++observed) {
-                CHECK(tableau.IsEntangled(observed) == reference.IsEntangled(observed));
             }
         }
         for (QubitSize q{0}; q < n; ++q) {
@@ -575,7 +557,6 @@ TEST_CASE("Simulator rejects invalid gate and measurement indices", "[simulator]
         CHECK_THROWS_AS(tableau.MeasureZ(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.IsDeterministicMeasureX(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.IsDeterministicMeasureZ(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.IsEntangled(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.ForceMeasureX(q, false), std::out_of_range);
         CHECK_THROWS_AS(tableau.ForceMeasureZ(q, true), std::out_of_range);
     }
@@ -675,16 +656,13 @@ TEST_CASE("Single-qubit Pauli eigenstates are unentangled", "[simulator][entangl
         CHECK_FALSE(sim.IsDeterministicMeasureX(q));
         CHECK_FALSE(sim.IsDeterministicMeasureZ(q));
     }
-    CHECK_FALSE(std::as_const(sim).IsEntangled(q));
-    if (n > 2) CHECK(sim.IsEntangled(0));
     if (basis == 2) sim.Sdg(q);
     if (basis != 0) sim.H(q);
     CHECK(sim.IsDeterministicMeasureZ(q));
     CHECK(sim.MeasureZ(q) == negative);
 }
 
-TEST_CASE("Entanglement queries preserve Bell pairs across word boundaries",
-          "[simulator][entanglement]") {
+TEST_CASE("Bell pairs remain intact across word boundaries", "[simulator][entanglement]") {
     const auto n{GENERATE(QubitSize{2}, QubitSize{64}, QubitSize{65}, QubitSize{129})};
     const auto rotation{GENERATE(0, 1, 2)};
     const auto target{n - 1};
@@ -700,9 +678,8 @@ TEST_CASE("Entanglement queries preserve Bell pairs across word boundaries",
     }
     const auto memory{sim.MemoryUsage()};
     for (unsigned repeat{0}; repeat < 3; ++repeat) {
-        CHECK(std::as_const(sim).IsEntangled(0));
-        CHECK(std::as_const(sim).IsEntangled(target));
-        if (n > 2) CHECK_FALSE(sim.IsEntangled(1));
+        CHECK_FALSE(sim.IsDeterministicMeasureZ(0));
+        CHECK_FALSE(sim.IsDeterministicMeasureZ(target));
     }
     CHECK(sim.MemoryUsage() == memory);
     if (rotation == 1) {
@@ -720,43 +697,31 @@ TEST_CASE("Entanglement queries preserve Bell pairs across word boundaries",
     CHECK_FALSE(sim.MeasureZ(target));
 }
 
-TEST_CASE("IsEntangled detects GHZ entanglement and its collapse", "[simulator][entanglement]") {
+TEST_CASE("GHZ measurements remain correlated after collapse", "[simulator][entanglement]") {
     Simulator<> sim{4};
     sim.H(0);
     sim.Cx(0, 1);
     sim.Cx(0, 2);
-    CHECK(sim.IsEntangled(0));
-    CHECK(sim.IsEntangled(1));
-    CHECK(sim.IsEntangled(2));
-    CHECK_FALSE(sim.IsEntangled(3));
     const auto outcome{sim.MeasureZ(0)};
-    for (QubitId q{0}; q < 4; ++q) CHECK_FALSE(sim.IsEntangled(q));
     CHECK(sim.MeasureZ(1) == outcome);
     CHECK(sim.MeasureZ(2) == outcome);
 }
 
-TEST_CASE("IsEntangled accepts added qubit IDs after growth and copying",
-          "[simulator][entanglement]") {
+TEST_CASE("Bell pairs using added qubits survive growth and copying", "[simulator][entanglement]") {
     const auto initial{GENERATE(QubitSize{0}, QubitSize{63}, QubitSize{64}, QubitSize{128})};
     Simulator<> sim{initial};
-    CHECK_THROWS_AS(sim.IsEntangled(std::numeric_limits<QubitId>::max()), std::out_of_range);
-    if (initial == 0) CHECK_THROWS_AS(sim.IsEntangled(0), std::out_of_range);
     const auto first{sim.Add()};
     const auto second{sim.Add()};
-    CHECK_FALSE(sim.IsEntangled(first));
-    CHECK_FALSE(sim.IsEntangled(second));
     sim.H(first);
     sim.Cx(first, second);
     for (unsigned i{0}; i < 150; ++i) sim.Add();
-    CHECK(sim.IsEntangled(first));
-    CHECK(sim.IsEntangled(second));
     auto copy{sim};
     copy.Cx(first, second);
     copy.H(first);
-    CHECK_FALSE(copy.IsEntangled(first));
-    CHECK_FALSE(copy.IsEntangled(second));
-    CHECK(sim.IsEntangled(first));
-    CHECK(sim.IsEntangled(second));
+    CHECK_FALSE(copy.MeasureZ(first));
+    CHECK_FALSE(copy.MeasureZ(second));
+    CHECK_FALSE(sim.IsDeterministicMeasureZ(first));
+    CHECK_FALSE(sim.IsDeterministicMeasureZ(second));
 }
 
 TEST_CASE("Discard resets every pure product eigenstate for storage reuse",
@@ -776,20 +741,17 @@ TEST_CASE("Discard resets every pure product eigenstate for storage reuse",
     if (basis == 2) sim.S(q);
     sim.Discard(q);
     CHECK(sim.NumQubits() == n - 1);
-    CHECK_THROWS_AS(sim.IsEntangled(q), std::out_of_range);
     auto copy{sim};
     const auto memory{sim.MemoryUsage()};
     const auto added{sim.Add()};
     CHECK(added != q);
     CHECK(sim.NumQubits() == n);
-    CHECK(sim.MemoryUsage() == memory + std::size_t{n} * sizeof(std::uint32_t));
+    if (n > 1) CHECK(sim.MemoryUsage() == memory + std::size_t{n} * sizeof(std::uint32_t));
     CHECK(sim.IsDeterministicMeasureZ(added));
     CHECK_FALSE(sim.MeasureZ(added));
     CHECK(copy.Add() == added);
     CHECK_FALSE(copy.MeasureZ(added));
     if (n > 2) {
-        CHECK(sim.IsEntangled(0));
-        CHECK(sim.IsEntangled(1));
         sim.Cx(0, 1);
         sim.H(0);
         CHECK(sim.IsDeterministicMeasureZ(0));
@@ -809,11 +771,9 @@ TEST_CASE("Discarding a Bell partner produces an exact maximally mixed qubit",
     CHECK(sim.NumQubits() == n - 1);
     CHECK_FALSE(sim.IsDeterministicMeasureX(0));
     CHECK_FALSE(sim.IsDeterministicMeasureZ(0));
-    CHECK_FALSE(sim.IsEntangled(0));
     auto copy{sim};
     const auto added{sim.Add()};
     CHECK(added != n - 1);
-    CHECK_FALSE(sim.IsEntangled(added));
     CHECK(sim.IsDeterministicMeasureZ(added));
     CHECK_FALSE(sim.MeasureZ(added));
     sim.H(0);
@@ -821,15 +781,13 @@ TEST_CASE("Discarding a Bell partner produces an exact maximally mixed qubit",
     CHECK_FALSE(sim.IsDeterministicMeasureX(0));
     CHECK_FALSE(sim.IsDeterministicMeasureZ(0));
     sim.Cx(0, added);
-    CHECK_FALSE(sim.IsEntangled(0));  // A classical mixture of |00> and |11>.
-    CHECK_FALSE(sim.IsEntangled(added));
+    // The reduced state is a classical mixture of |00> and |11>.
     const auto outcome{sim.MeasureZ(0)};
     CHECK(sim.IsDeterministicMeasureZ(added));
     CHECK(sim.MeasureZ(added) == outcome);
     CHECK_FALSE(copy.IsDeterministicMeasureZ(0));
     copy.Discard(0);  // Locally mixed but not entangled with another active qubit.
     const auto replacement{copy.Add()};
-    CHECK_FALSE(copy.IsEntangled(replacement));
     CHECK(copy.IsDeterministicMeasureZ(replacement));
     CHECK_FALSE(copy.MeasureZ(replacement));
 }
@@ -842,7 +800,6 @@ TEST_CASE("A partial trace distinguishes classical GHZ correlations from entangl
     sim.Cx(0, 3);
     sim.Discard(3);
     for (const QubitId q : {0, 1}) {
-        CHECK_FALSE(sim.IsEntangled(q));
         CHECK_FALSE(sim.IsDeterministicMeasureX(q));
         CHECK_FALSE(sim.IsDeterministicMeasureZ(q));
     }
@@ -859,10 +816,9 @@ TEST_CASE("A partial trace distinguishes classical GHZ correlations from entangl
     sim.Discard(2);
     const auto memory{sim.MemoryUsage()};
     const auto added{sim.Add()};
-    CHECK(sim.MemoryUsage() == memory + 4 * sizeof(std::uint32_t));
+    CHECK(sim.MemoryUsage() <= memory + 4 * sizeof(std::uint32_t));
     CHECK_FALSE(sim.MeasureZ(added));
     CHECK_FALSE(sim.IsDeterministicMeasureZ(1));
-    CHECK_FALSE(sim.IsEntangled(1));
 }
 
 TEST_CASE("Partial trace preserves independent Bell entanglement through growth and copies",
@@ -875,15 +831,10 @@ TEST_CASE("Partial trace preserves independent Bell entanglement through growth 
     sim.Discard(3);
     std::vector<QubitId> added;
     for (unsigned i{0}; i < 70; ++i) added.push_back(sim.Add());
-    CHECK(sim.IsEntangled(0));
-    CHECK(sim.IsEntangled(1));
-    CHECK_FALSE(sim.IsEntangled(2));
     CHECK_FALSE(sim.IsDeterministicMeasureZ(2));
     auto copy{sim};
     sim.Discard(0);
-    CHECK_FALSE(sim.IsEntangled(1));
     CHECK_FALSE(sim.IsDeterministicMeasureZ(1));
-    CHECK(copy.IsEntangled(0));
     copy.Cx(0, 1);
     copy.H(0);
     CHECK_FALSE(copy.MeasureZ(0));
@@ -919,10 +870,6 @@ TEST_CASE("Mixed entanglement reduction handles hidden slots across multiple wor
     }
     for (QubitSize q{half}; q < n; ++q) sim.Discard(q);
     CHECK(sim.NumQubits() == half);
-    CHECK(sim.IsEntangled(0));
-    CHECK(sim.IsEntangled(1));
-    CHECK_FALSE(sim.IsEntangled(2));
-    CHECK_FALSE(sim.IsEntangled(half - 1));
     CHECK_FALSE(sim.IsDeterministicMeasureX(half - 1));
     CHECK_FALSE(sim.IsDeterministicMeasureZ(half - 1));
     auto copy{sim};
@@ -932,11 +879,9 @@ TEST_CASE("Mixed entanglement reduction handles hidden slots across multiple wor
     CHECK_FALSE(copy.MeasureZ(1));
     CHECK_FALSE(copy.IsDeterministicMeasureZ(half - 1));
     sim.Discard(0);
-    CHECK_FALSE(sim.IsEntangled(1));
     const auto fresh{sim.Add()};
     CHECK(sim.IsDeterministicMeasureZ(fresh));
     CHECK_FALSE(sim.MeasureZ(fresh));
-    CHECK_FALSE(sim.IsEntangled(fresh));
     CHECK_FALSE(sim.IsDeterministicMeasureZ(1));
 }
 
@@ -950,7 +895,6 @@ struct ActiveReferenceQubit {
 void CheckReducedState(const InverseTableau& tableau, const StateVector& reference,
                        const std::vector<ActiveReferenceQubit>& active) {
     REQUIRE(tableau.NumQubits() == active.size());
-    std::vector<unsigned> local_types(active.size());
     const auto pauli_count{std::size_t{1} << (2 * active.size())};
     for (std::size_t pauli{1}; pauli < pauli_count; ++pauli) {
         auto measured{tableau};
@@ -979,21 +923,11 @@ void CheckReducedState(const InverseTableau& tableau, const StateVector& referen
         if (deterministic) {
             CHECK(std::abs(std::abs(expectation) - 1) < 1e-9);
             CHECK(measured.MeasureZ(active[target].id) == (expectation < 0));
-            for (std::size_t q{0}; q < active.size(); ++q) {
-                const auto type{(pauli >> (2 * q)) & 3U};
-                if (type != 0) local_types[q] |= 1U << type;
-            }
         }
-    }
-    for (std::size_t q{0}; q < active.size(); ++q) {
-        CAPTURE(q, local_types[q]);
-        // For a mixed stabilizer state, two different surviving local Pauli types anticommute,
-        // witnessing entanglement across this qubit's cut; one type is classical correlation.
-        CHECK(tableau.IsEntangled(active[q].id) == (std::popcount(local_types[q]) >= 2));
     }
 }
 
-TEST_CASE("Exact mixed states agree with state-vector partial traces during ID reuse",
+TEST_CASE("Exact mixed states agree with state-vector partial traces during id reuse",
           "[inverse_tableau][discard][mixed][reference]") {
     std::mt19937 choices{71421};
     constexpr std::array<InverseTableau::UnaryGateFunction, 7> unary{
@@ -1045,6 +979,187 @@ TEST_CASE("Exact mixed states agree with state-vector partial traces during ID r
             CheckReducedState(tableau, reference, active);
         }
     }
+}
+
+TEST_CASE("Geometric contraction preserves dense inverse frames and stable IDs",
+          "[inverse_tableau][discard][contract][reference]") {
+    std::mt19937 choices{92183};
+    for (unsigned trial{0}; trial < 32; ++trial) {
+        InverseTableau tableau{6};
+        StateVector reference{6};
+        std::vector<ActiveReferenceQubit> active{{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}};
+        for (unsigned step{0}; step < 50; ++step) {
+            const auto q{static_cast<QubitSize>(choices() % 6)};
+            const auto t{static_cast<QubitSize>((q + 1 + choices() % 5) % 6)};
+            const auto gate{choices() % 3};
+            if (gate == 0) {
+                tableau.ApplyH(q);
+                reference.Apply(0, q, 0);
+            } else if (gate == 1) {
+                tableau.ApplyS(q);
+                reference.Apply(2, q, 0);
+            } else {
+                tableau.ApplyCx(q, t);
+                reference.Apply(7, q, t);
+            }
+        }
+        for (const QubitId id : {1, 3, 4}) {
+            const auto outcome{tableau.MeasureZ(id)};
+            reference.MeasureZ(static_cast<QubitSize>(id), outcome);
+            tableau.Discard(id);
+            std::erase_if(active, [id](const auto& q) { return q.id == id; });
+            CHECK_THROWS_AS(tableau.ApplyH(id), std::out_of_range);
+        }
+        CAPTURE(trial);
+        CheckReducedState(tableau, reference, active);
+        const auto id{tableau.Add()};
+        reference.Add();
+        active.push_back({id, 6});
+        tableau.ApplyH(id);
+        reference.Apply(0, 6, 0);
+        tableau.ApplyCx(id, active.front().id);
+        reference.Apply(7, 6, active.front().reference_index);
+        CheckReducedState(tableau, reference, active);
+        auto copy{tableau};
+        CheckReducedState(copy, reference, active);
+    }
+}
+
+TEST_CASE("Hidden purification agrees with exact partial traces",
+          "[inverse_tableau][discard][mixed][contract][reference]") {
+    std::mt19937 choices{28314};
+    for (unsigned trial{0}; trial < 24; ++trial) {
+        InverseTableau tableau{7};
+        StateVector reference{7};
+        std::vector<ActiveReferenceQubit> active{{0, 0}, {1, 1}, {2, 2}, {3, 3},
+                                                 {4, 4}, {5, 5}, {6, 6}};
+        // A connected graph state guarantees every initial slot is locally mixed.
+        for (QubitId q{0}; q < 7; ++q) {
+            tableau.ApplyH(q);
+            reference.Apply(0, q, 0);
+        }
+        for (QubitId q{0}; q < 6; ++q) {
+            tableau.ApplyCz(q, q + 1);
+            reference.Apply(8, q, q + 1);
+        }
+        for (unsigned step{0}; step < 40; ++step) {
+            const auto q{static_cast<QubitSize>(choices() % 7)};
+            const auto t{static_cast<QubitSize>((q + 1 + choices() % 6) % 7)};
+            if (choices() % 2 == 0) {
+                tableau.ApplyS(q);
+                reference.Apply(2, q, 0);
+            } else {
+                tableau.ApplyCx(q, t);
+                reference.Apply(7, q, t);
+            }
+        }
+        for (const QubitId id : {0, 2, 3, 4, 6}) {
+            tableau.Discard(id);
+            std::erase_if(active, [id](const auto& q) { return q.id == id; });
+            CHECK_THROWS_AS(tableau.ApplyH(id), std::out_of_range);
+        }
+        CAPTURE(trial);
+        CheckReducedState(tableau, reference, active);
+        // Verify the reduced state remains exact as active gates change it.
+        for (unsigned step{0}; step < 10; ++step) {
+            tableau.ApplyH(active[0].id);
+            reference.Apply(0, active[0].reference_index, 0);
+            tableau.ApplyCx(active[0].id, active[1].id);
+            reference.Apply(7, active[0].reference_index, active[1].reference_index);
+            CheckReducedState(tableau, reference, active);
+        }
+        const auto outcome{tableau.MeasureX(active[0].id)};
+        reference.Apply(0, active[0].reference_index, 0);
+        reference.MeasureZ(active[0].reference_index, outcome);
+        reference.Apply(0, active[0].reference_index, 0);
+        CheckReducedState(tableau, reference, active);
+    }
+}
+
+TEST_CASE("Repeated entangled discard preserves exact mixed states",
+          "[simulator][discard][mixed][contract][memory]") {
+    Simulator<> sim{2};
+    QubitId first{0};
+    QubitId second{1};
+    std::size_t largest{sim.MemoryUsage()};
+    sim.H(first);
+    sim.Cx(first, second);
+    sim.Discard(second);
+    second = sim.Add();
+    for (unsigned step{0}; step < 100; ++step) {
+        // Transfer maximal local mixedness to the new qubit, without measuring either partner.
+        sim.H(second);
+        sim.Cx(second, first);
+        const auto old{first};
+        sim.Discard(first);
+        first = second;
+        second = sim.Add();
+        CHECK_FALSE(sim.IsDeterministicMeasureX(first));
+        CHECK_FALSE(sim.IsDeterministicMeasureZ(first));
+        CHECK_THROWS_AS(sim.H(old), std::out_of_range);
+        CHECK(sim.IsDeterministicMeasureZ(second));
+        largest = std::max(largest, sim.MemoryUsage());
+    }
+    CHECK(largest > 4096);
+}
+
+TEST_CASE("Contraction triggers geometrically and preserves high-valued live IDs",
+          "[simulator][discard][contract][memory]") {
+    Simulator<> sim{128};
+    sim.H(126);
+    sim.Cx(126, 127);
+    const auto memory{sim.MemoryUsage()};
+    for (QubitId q{0}; q < 63; ++q) {
+        sim.Discard(q);
+        CHECK(sim.MemoryUsage() == memory);
+    }
+    sim.Discard(63);
+    CHECK(sim.MemoryUsage() < memory);
+    const auto contracted{sim.MemoryUsage()};
+    for (QubitId q{64}; q < 95; ++q) {
+        sim.Discard(q);
+        CHECK(sim.MemoryUsage() == contracted);
+    }
+    sim.Discard(95);
+    CHECK(sim.MemoryUsage() < contracted);
+    sim.Cx(126, 127);
+    sim.H(126);
+    CHECK_FALSE(sim.MeasureZ(126));
+    CHECK_FALSE(sim.MeasureZ(127));
+    const auto added{sim.Add()};
+    CHECK_FALSE(sim.MeasureZ(added));
+    CHECK_THROWS_AS(sim.H(63), std::out_of_range);
+}
+
+TEST_CASE("Hidden purification preserves independent mixed qubits across word boundaries",
+          "[simulator][discard][mixed][contract]") {
+    Simulator<> sim{129};
+    for (QubitId q{0}; q < 64; ++q) {
+        sim.H(q);
+        sim.Cx(q, q + 64);
+    }
+    const auto initial{sim.MemoryUsage()};
+    for (QubitId q{64}; q < 129; ++q) sim.Discard(q);
+    for (QubitId q{0}; q < 48; ++q) sim.Discard(q);
+    CHECK(sim.NumQubits() == 16);
+    CHECK(sim.MemoryUsage() == initial);
+    for (QubitId q{48}; q < 64; ++q) {
+        sim.H(q);
+        sim.S(q);
+        CHECK_FALSE(sim.IsDeterministicMeasureX(q));
+        CHECK_FALSE(sim.IsDeterministicMeasureZ(q));
+    }
+    for (QubitId q{48}; q < 63; ++q) {
+        auto parity{sim};
+        parity.Cx(q, q + 1);
+        CHECK_FALSE(parity.IsDeterministicMeasureZ(q + 1));
+    }
+    const auto added{sim.Add()};
+    CHECK(sim.IsDeterministicMeasureZ(added));
+    sim.Cx(63, added);
+    sim.Cx(63, added);
+    CHECK(sim.IsDeterministicMeasureZ(added));
+    CHECK_FALSE(sim.MeasureZ(added));
 }
 
 TEST_CASE("ForceMeasureZ works correctly") {
