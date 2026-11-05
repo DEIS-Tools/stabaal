@@ -57,7 +57,8 @@ if(BUILD_TESTING)
     )
     FetchContent_MakeAvailable(Catch2)
 
-    add_executable(stabaal_tests tests/test_inverse_tableau.cpp tests/test_pauli_string.cpp)
+    add_executable(stabaal_tests tests/test_inverse_tableau.cpp tests/test_pauli_string.cpp
+                                tests/test_qubit_ids.cpp)
     target_link_libraries(stabaal_tests PRIVATE stabaal Catch2::Catch2WithMain)
 
     list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
