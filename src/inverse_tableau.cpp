@@ -154,7 +154,9 @@ InverseTableau::InverseTableau(const InverseTableau& other)
       num_ids_{other.num_ids_},
       id_capacity_{other.num_ids_},
       first_free_id_{other.first_free_id_},
-      generation_epoch_{other.generation_epoch_} {
+      generation_epoch_{other.generation_epoch_},
+      measurement_engine_{other.measurement_engine_},
+      measurement_random_{other.measurement_random_} {
     CopyRows(other);
     if (other.generations_) {
         const auto count{id_capacity_ != 0 ? std::size_t{2} * id_capacity_ : capacity_};
@@ -167,11 +169,12 @@ InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
     if (this == &other) {
         return *this;
     }
-    
+
     if (words_ && capacity_ == other.num_slots_) {
         const auto count{other.id_capacity_ != 0 ? std::size_t{2} * other.num_ids_ : capacity_};
-        auto generations{other.generations_ ? std::make_unique_for_overwrite<std::uint32_t[]>(count)
-                                            : nullptr};
+        auto generations{
+            other.generations_ ? std::make_unique_for_overwrite<std::uint32_t[]>(count) : nullptr,
+        };
         if (generations) {
             std::copy_n(other.generations_.get(), count, generations.get());
         }
@@ -186,10 +189,12 @@ InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
         first_free_id_ = other.first_free_id_;
         generations_ = std::move(generations);
         generation_epoch_ = other.generation_epoch_;
+        measurement_engine_ = other.measurement_engine_;
+        measurement_random_ = other.measurement_random_;
     } else {
         *this = InverseTableau{other};
     }
-    
+
     return *this;
 }
 
@@ -226,8 +231,8 @@ QubitSize& InverseTableau::IdIndex(const QubitSize id_slot) noexcept {
 QubitSize InverseTableau::ResolveQubit(const QubitId id) const {
     if (!generations_ && generation_epoch_ == 0) {
         if (id < num_slots_ &&
-            (num_qubits_ == num_slots_ || (!GetBit(Flags(kTombstoneFlags), id) &&
-                                           !GetBit(Flags(kPurificationFlags), id)))) {
+            (num_qubits_ == num_slots_ ||
+             (!GetBit(Flags(kTombstoneFlags), id) && !GetBit(Flags(kPurificationFlags), id)))) {
             return static_cast<QubitSize>(id);
         }
 
@@ -242,8 +247,8 @@ QubitSize InverseTableau::ResolveQubit(const QubitId id) const {
             return IdIndex(slot);
         }
 
-        if (num_qubits_ == num_slots_ || (!GetBit(Flags(kTombstoneFlags), slot) &&
-                                           !GetBit(Flags(kPurificationFlags), slot))) {
+        if (num_qubits_ == num_slots_ ||
+            (!GetBit(Flags(kTombstoneFlags), slot) && !GetBit(Flags(kPurificationFlags), slot))) {
             return slot;
         }
     }
@@ -291,7 +296,8 @@ void InverseTableau::ReserveId() {
     }
 
     const auto growth{
-        std::min(std::max(id_capacity_ / kGrowthDivisor, QubitSize{1}), kNoSlot - id_capacity_)};
+        std::min(std::max(id_capacity_ / kGrowthDivisor, QubitSize{1}), kNoSlot - id_capacity_),
+    };
     const auto capacity{id_capacity_ + growth};
     auto entries{std::make_unique_for_overwrite<std::uint32_t[]>(std::size_t{2} * capacity)};
     std::copy_n(generations_.get(), std::size_t{2} * num_ids_, entries.get());
@@ -335,7 +341,7 @@ QubitSize InverseTableau::AppendSlot() {
         if (id_capacity_ == 0) {
             generations_ = std::move(grown.generations_);
         }
-        
+
         capacity_ = grown.capacity_;
     }
 
@@ -365,9 +371,9 @@ QubitId InverseTableau::Add() {
         const auto tombstones{Flags(kTombstoneFlags)};
         const auto purification{Flags(kPurificationFlags)};
         for (QubitSize q{0}; q < capacity_; ++q) {
-            generations[q] = static_cast<std::uint32_t>(generation_epoch_) +
-                             static_cast<std::uint32_t>(GetBit(tombstones, q) ||
-                                                        GetBit(purification, q));
+            generations[q] =
+                static_cast<std::uint32_t>(generation_epoch_) +
+                static_cast<std::uint32_t>(GetBit(tombstones, q) || GetBit(purification, q));
         }
     }
 
@@ -546,7 +552,7 @@ void InverseTableau::Contract() {
     for (QubitSize q{0}; q < num_slots_; ++q) {
         origins[q] = q;
     }
-    
+
     MapIds();
     QubitSize q{0};
     while (q < num_slots_) {
@@ -556,7 +562,7 @@ void InverseTableau::Contract() {
             ++q;
         }
     }
-    
+
     for (QubitSize index{0}; index < num_slots_; ++index) {
         relocation[origins[index]] = index;
     }
@@ -627,9 +633,10 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b,
     if (measurement_opt) {
         p = measurement_opt.value();
     } else {
-        static thread_local Sfc64 engine;
-        static thread_local Random<Sfc64::result_type> random;
-        p = random(engine);
+        if (!measurement_engine_) {
+            measurement_engine_.emplace();
+        }
+        p = measurement_random_(*measurement_engine_);
     }
 
     Collapse(pivot, p);

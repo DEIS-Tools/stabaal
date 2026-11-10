@@ -23,7 +23,7 @@ class Sfc64 {
 
     Sfc64() : Sfc64(std::random_device{}()) {}
     explicit Sfc64(const std::uint64_t seed) noexcept
-        : m_a_{seed}, m_b_{seed}, m_c_{seed}, m_counter_{seed} {
+        : m_a_{seed}, m_b_{seed}, m_c_{seed}, m_counter_{1} {
         for (auto i = 0; i < 12; ++i) {
             static_cast<void>(operator()());
         }
@@ -49,7 +49,7 @@ class Sfc64 {
 };
 
 template <std::unsigned_integral U>
-class Random {
+class RandomBit {
    public:
     template <std::uniform_random_bit_generator Rng>
     [[nodiscard]] bool operator()(Rng& rng) {

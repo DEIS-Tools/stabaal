@@ -9,6 +9,7 @@
 #include <span>
 
 #include "pauli_string_view.hpp"
+#include "random.hpp"
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {
@@ -35,7 +36,7 @@ class InverseTableau {
     explicit InverseTableau(QubitSize num_qubits);
 
     /**
-     * Copy the state into independent storage.
+     * Copy the quantum and measurement RNG state into independent storage.
      * @param other Source tableau.
      */
     InverseTableau(const InverseTableau& other);
@@ -306,12 +307,16 @@ class InverseTableau {
      * ID generations and physical slot mapping when needed.
      */
     std::unique_ptr<std::uint32_t[]> generations_;
-    
+
     /**
      * Highest ID generation issued, and remembered even after the last qubit is discarded.
      */
     std::uint64_t generation_epoch_{0};
-    
+
+    /** Seed on the first sampled measurement; copies preserve the engine and cached bits. */
+    std::optional<Sfc64> measurement_engine_;
+    RandomBit<Sfc64::result_type> measurement_random_;
+
     /**
      * Validate a qubit ID and find its physical tableau slot.
      * @param id Qubit ID to resolve.
@@ -319,7 +324,6 @@ class InverseTableau {
      * @throws std::out_of_range If the ID is not active.
      */
     [[nodiscard]] QubitSize ResolveQubit(QubitId id) const;
-
 
     /**
      * Check whether a discarded qubit must be retained for purification.
@@ -342,7 +346,7 @@ class InverseTableau {
      * @pre Generation storage has been allocated.
      */
     [[nodiscard]] std::uint32_t& Generation(QubitSize id_slot) noexcept;
-    
+
     /**
      * Read an ID entry's physical slot or next free ID entry.
      * @param id_slot Logical ID slot.
@@ -403,7 +407,6 @@ class InverseTableau {
      * @param origins Original physical slot indices, updated when slots move.
      */
     void RemoveProductSlot(QubitSize q, BitWordSpan targets, std::span<QubitSize> origins) noexcept;
-    
 
     /**
      * Return the total word count for generator components and flags at the given capacity.
