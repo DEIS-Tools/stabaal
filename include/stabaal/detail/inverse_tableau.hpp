@@ -100,6 +100,20 @@ class InverseTableau {
     bool MeasureZ(QubitId id);
 
     /**
+     * Measure and discard qubit q in the X basis.
+     * @param id Qubit id.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool MeasureAndDiscardX(QubitId id);
+
+    /**
+     * Measure and discard qubit q in the Z basis.
+     * @param id Qubit id.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool MeasureAndDiscardZ(QubitId id);
+
+    /**
      * Checks wether measuring qubit q in the X basis will be a deterministic measurement
      * @param id Qubit id.
      * @return The outcome: true if the measurement will be deterministic, false otherwise

@@ -89,6 +89,16 @@ struct IndexBackend {
         Record(q);
         return false;
     }
+    bool MeasureAndDiscardX(const QubitId q) {
+        const auto outcome{MeasureX(q)};
+        Discard(q);
+        return outcome;
+    }
+    bool MeasureAndDiscardZ(const QubitId q) {
+        const auto outcome{MeasureZ(q)};
+        Discard(q);
+        return outcome;
+    }
     bool IsDeterministicMeasureX(const QubitId q) const {
         Record(q);
         return true;

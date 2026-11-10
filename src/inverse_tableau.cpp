@@ -189,6 +189,7 @@ InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
     } else {
         *this = InverseTableau{other};
     }
+    
     return *this;
 }
 
@@ -681,6 +682,18 @@ bool InverseTableau::MeasureX(const QubitId id) {
 
 bool InverseTableau::MeasureZ(const QubitId id) {
     return Measure(ResolveQubit(id), Basis::kComputational);
+}
+
+bool InverseTableau::MeasureAndDiscardX(const QubitId id) {
+    const auto outcome = MeasureX(id);
+    Discard(id);
+    return outcome;
+}
+
+bool InverseTableau::MeasureAndDiscardZ(const QubitId id) {
+    const auto outcome = MeasureZ(id);
+    Discard(id);
+    return outcome;
 }
 
 bool InverseTableau::ForceMeasure(const QubitSize q, bool measurement, Basis basis) {

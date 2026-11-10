@@ -39,6 +39,10 @@ PYBIND11_MODULE(stabaal, m) {
                  "Measure qubit q in Hadamard basis.")
             .def("measure_z", &InverseSim::MeasureZ, py::arg("q"),
                  "Measure qubit q in computational basis.")
+            .def("measure_and_discard_x", &InverseSim::MeasureAndDiscardX, py::arg("q"),
+                 "Measure qubit q in the X basis, discard it, and return the boolean outcome.")
+            .def("measure_and_discard_z", &InverseSim::MeasureAndDiscardZ, py::arg("q"),
+                 "Measure qubit q in the Z basis, discard it, and return the boolean outcome.")
             .def("is_deterministic_measure_x", &InverseSim::IsDeterministicMeasureX, py::arg("q"),
                  "Return whether an X measurement is deterministic.")
             .def("is_deterministic_measure_z", &InverseSim::IsDeterministicMeasureZ, py::arg("q"),

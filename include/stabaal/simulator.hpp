@@ -23,6 +23,8 @@ concept SimulationBackend =
         { backend.Discard(q) } -> std::same_as<void>;
         { backend.MeasureX(q) } -> std::same_as<bool>;
         { backend.MeasureZ(q) } -> std::same_as<bool>;
+        { backend.MeasureAndDiscardX(q) } -> std::same_as<bool>;
+        { backend.MeasureAndDiscardZ(q) } -> std::same_as<bool>;
         { const_backend.IsDeterministicMeasureX(q) } -> std::same_as<bool>;
         { const_backend.IsDeterministicMeasureZ(q) } -> std::same_as<bool>;
         { backend.ForceMeasureX(q, measurement) } -> std::same_as<bool>;
@@ -91,6 +93,20 @@ class Simulator {
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
     bool MeasureZ(QubitId q) { return backend_.MeasureZ(q); }
+
+    /**
+     * Measure and discard qubit q in the X basis.
+     * @param id Qubit id.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool MeasureAndDiscardX(QubitId id) { return backend_.MeasureAndDiscardX(id); }
+
+    /**
+     * Measure and discard qubit q in the Z basis.
+     * @param id Qubit id.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool MeasureAndDiscardZ(QubitId id) { return backend_.MeasureAndDiscardZ(id); }
 
     /**
      * Check whether measuring qubit q in the X basis is deterministic.
