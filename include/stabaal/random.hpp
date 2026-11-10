@@ -1,5 +1,5 @@
-#ifndef STABAAL_DETAIL_RANDOM_HPP
-#define STABAAL_DETAIL_RANDOM_HPP
+#ifndef STABAAL_RANDOM_HPP
+#define STABAAL_RANDOM_HPP
 
 #include <bit>
 #include <concepts>
@@ -67,5 +67,11 @@ class RandomBit {
     U rand_vals_{1};
 };
 }  // namespace stabaal::detail
+
+namespace stabaal {
+
+using RandomEngine = detail::Sfc64;
+
+}  // namespace stabaal
 
 #endif

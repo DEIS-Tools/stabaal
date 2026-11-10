@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include "stabaal/backends/pauli_noise_backend.hpp"
 #include "stabaal/simulator.hpp"
 #include "stabaal/types.hpp"
 
@@ -14,6 +15,9 @@ namespace {
 
 using stabaal::QubitId;
 using stabaal::QubitSize;
+
+using WrappedBackend = stabaal::PauliNoiseBackend<stabaal::InverseTableau>;
+static_assert(stabaal::SimulationBackend<WrappedBackend>);
 
 // Exercises id routing without implementing quantum discard or compaction in the real backend.
 struct IndexBackend {
@@ -143,6 +147,32 @@ struct IndexBackend {
 using IndexSim = stabaal::Simulator<IndexBackend>;
 
 }  // namespace
+
+TEST_CASE("Noise wrapper preserves ideal correlations and qubit lifetimes",
+          "[simulator][wrapper]") {
+    stabaal::Simulator<WrappedBackend> sim{2};
+    stabaal::Simulator<> ideal{2};
+    CHECK(sim.MemoryUsage() == ideal.MemoryUsage() + sizeof(sim) - sizeof(ideal));
+    sim.H(0);
+    sim.Cx(0, 1);
+    CHECK(sim.ForceMeasureZ(0, true));
+    CHECK(std::as_const(sim).IsDeterministicMeasureZ(1));
+    CHECK(sim.MeasureAndDiscardZ(1));
+    CHECK(sim.NumQubits() == 1);
+    const auto added{sim.Add()};
+    CHECK(added != 1);
+    CHECK_FALSE(sim.MeasureZ(added));
+    CHECK_THROWS_AS(sim.X(1), std::out_of_range);
+    auto copy{sim};
+    sim.H(added);
+    sim.Z(added);
+    CHECK(std::as_const(sim).IsDeterministicMeasureX(added));
+    CHECK(sim.MeasureAndDiscardX(added));
+    CHECK_FALSE(copy.MeasureZ(added));
+    sim.Discard(0);
+    CHECK(sim.NumQubits() == 0);
+    CHECK(copy.MeasureZ(0));
+}
 
 TEST_CASE("New qubits return IDs that survive growth", "[simulator][ids]") {
     stabaal::Simulator<> sim{2};

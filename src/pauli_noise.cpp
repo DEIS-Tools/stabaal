@@ -1,4 +1,4 @@
-#include "stabaal/detail/pauli_noise.hpp"
+#include "stabaal/noise/pauli_noise.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -6,9 +6,7 @@
 #include <random>
 #include <stdexcept>
 
-#include "stabaal/detail/random.hpp"
-
-namespace stabaal::detail {
+namespace stabaal {
 PauliNoise::PauliNoise(double wi, double wx, double wy, double wz) {
     for (const double weight : {wi, wx, wy, wz}) {
         if (!std::isfinite(weight) || weight < 0.0) {
@@ -32,7 +30,7 @@ PauliNoise::PauliNoise(double wi, double wx, double wy, double wz) {
     y_end_ = (wi + wx + wy) / total;
 }
 
-PauliError PauliNoise::operator()(Sfc64& rng) const noexcept {
+PauliError PauliNoise::operator()(RandomEngine& rng) const noexcept {
     const double val = std::generate_canonical<double, std::numeric_limits<double>::digits>(rng);
     if (val < i_end_) {
         return PauliError::kI;
@@ -48,4 +46,4 @@ PauliError PauliNoise::operator()(Sfc64& rng) const noexcept {
 
     return PauliError::kZ;
 }
-}  // namespace stabaal::detail
+}  // namespace stabaal

@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-#include "stabaal/detail/inverse_tableau.hpp"
+#include "stabaal/backends/inverse_tableau.hpp"
 #include "stabaal/simulator.hpp"
 #include "stabaal/types.hpp"
 

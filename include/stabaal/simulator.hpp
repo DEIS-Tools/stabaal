@@ -5,13 +5,13 @@
 #include <limits>
 #include <stdexcept>
 
-#include "detail/inverse_tableau.hpp"
-#include "detail/simulation_backend.hpp"
+#include "stabaal/backends/inverse_tableau.hpp"
+#include "stabaal/backends/simulation_backend.hpp"
 #include "types.hpp"
 
 namespace stabaal {
 
-template <SimulationBackend Backend = detail::InverseTableau>
+template <SimulationBackend Backend = InverseTableau>
 class Simulator {
    public:
     /**
@@ -162,25 +162,25 @@ class Simulator {
     void Y(QubitId q) { backend_.ApplyY(q); }
 
     /**
-     * Apply a controlled X gate with control c and target t.
-     * @param c Control qubit id.
-     * @param t Target qubit id.
+     * Apply a controlled X gate from control to target.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
      */
-    void Cx(QubitId c, QubitId t) { backend_.ApplyCx(c, t); }
+    void Cx(QubitId control, QubitId target) { backend_.ApplyCx(control, target); }
 
     /**
-     * Apply a controlled Z gate with control c and target t.
-     * @param c Control qubit id.
-     * @param t Target qubit id.
+     * Apply a controlled Z gate from control to target.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
      */
-    void Cz(QubitId c, QubitId t) { backend_.ApplyCz(c, t); }
+    void Cz(QubitId control, QubitId target) { backend_.ApplyCz(control, target); }
 
     /**
-     * Apply a controlled Y gate with control c and target t.
-     * @param c Control qubit id.
-     * @param t Target qubit id.
+     * Apply a controlled Y gate from control to target.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
      */
-    void Cy(QubitId c, QubitId t) { backend_.ApplyCy(c, t); }
+    void Cy(QubitId control, QubitId target) { backend_.ApplyCy(control, target); }
 
     /**
      * Print the backend's state representation to standard output.
