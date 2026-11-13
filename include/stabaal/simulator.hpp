@@ -1,50 +1,20 @@
 #ifndef STABAAL_SIMULATOR_HPP
 #define STABAAL_SIMULATOR_HPP
 
-#include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <limits>
+#include <optional>
 #include <stdexcept>
 
-#include "detail/inverse_tableau.hpp"
+#include "stabaal/backends/inverse_tableau.hpp"
+#include "stabaal/backends/simulation_backend.hpp"
+#include "stabaal/noise/pauli_noise.hpp"
 #include "types.hpp"
 
 namespace stabaal {
 
-/**
- * Operations required of a Simulator backend.
- */
-template <typename T>
-concept SimulationBackend =
-    std::constructible_from<T, QubitSize> && requires(T& backend, const T& const_backend, QubitId q,
-                                                      QubitId c, QubitId t, bool measurement) {
-        { const_backend.NumQubits() } noexcept -> std::same_as<QubitSize>;
-        { backend.Add() } -> std::same_as<QubitId>;
-        { backend.Discard(q) } -> std::same_as<void>;
-        { backend.MeasureX(q) } -> std::same_as<bool>;
-        { backend.MeasureZ(q) } -> std::same_as<bool>;
-        { backend.MeasureAndDiscardX(q) } -> std::same_as<bool>;
-        { backend.MeasureAndDiscardZ(q) } -> std::same_as<bool>;
-        { const_backend.IsDeterministicMeasureX(q) } -> std::same_as<bool>;
-        { const_backend.IsDeterministicMeasureZ(q) } -> std::same_as<bool>;
-        { backend.ForceMeasureX(q, measurement) } -> std::same_as<bool>;
-        { backend.ForceMeasureZ(q, measurement) } -> std::same_as<bool>;
-        { backend.ApplyH(q) } -> std::same_as<void>;
-        { backend.ApplyS(q) } -> std::same_as<void>;
-        { backend.ApplySdg(q) } -> std::same_as<void>;
-        { backend.ApplySx(q) } -> std::same_as<void>;
-        { backend.ApplyI(q) } -> std::same_as<void>;
-        { backend.ApplyX(q) } -> std::same_as<void>;
-        { backend.ApplyZ(q) } -> std::same_as<void>;
-        { backend.ApplyY(q) } -> std::same_as<void>;
-        { backend.ApplyCx(c, t) } -> std::same_as<void>;
-        { backend.ApplyCz(c, t) } -> std::same_as<void>;
-        { backend.ApplyCy(c, t) } -> std::same_as<void>;
-        { const_backend.Print() } -> std::same_as<void>;
-        { const_backend.MemoryUsage() } noexcept -> std::same_as<std::size_t>;
-    };
-
-template <SimulationBackend Backend = detail::InverseTableau>
+template <SimulationBackend Backend = InverseTableau>
 class Simulator {
    public:
     /**
@@ -53,7 +23,33 @@ class Simulator {
      * copies preserve existing IDs and then evolve independently.
      * @param num_qubits Number of qubits.
      */
-    explicit Simulator(QubitSize num_qubits) : backend_(num_qubits) {}
+    explicit Simulator(const QubitSize num_qubits) : backend_(num_qubits) {}
+
+    /**
+     * Create a simulator with num_qubits qubits initialized to |0>^num_qubits.
+     * Initial IDs are 0 through num_qubits - 1. IDs belong to this simulator;
+     * copies preserve existing IDs and then evolve independently.
+     * @param num_qubits Number of qubits.
+     * @param seed Measurement random seed, or std::nullopt for automatic seeding.
+     */
+    explicit Simulator(const QubitSize num_qubits, const std::optional<std::uint64_t> seed)
+        requires std::constructible_from<Backend, QubitSize, std::optional<std::uint64_t>>
+        : backend_(num_qubits, seed) {}
+
+    /**
+     * Create a simulator with num_qubits qubits initialized to |0>^num_qubits.
+     * Initial IDs are 0 through num_qubits - 1. IDs belong to this simulator;
+     * copies preserve existing IDs and then evolve independently.
+     * Measurement and noise sampling use independent random engines.
+     * @param num_qubits Number of qubits.
+     * @param seed Measurement random seed, or std::nullopt for automatic seeding.
+     * @param noise_seed Noise random seed, or std::nullopt for automatic seeding.
+     */
+    explicit Simulator(const QubitSize num_qubits, const std::optional<std::uint64_t> seed,
+                       const std::optional<std::uint64_t> noise_seed)
+        requires std::constructible_from<Backend, QubitSize, std::optional<std::uint64_t>,
+                                         std::optional<std::uint64_t>>
+        : backend_(num_qubits, seed, noise_seed) {}
 
     /**
      * Return the number of active qubits.
@@ -78,42 +74,43 @@ class Simulator {
      * Trace out qubit q exactly, preserving the remaining qubits' reduced state.
      * @param q Qubit id.
      */
-    void Discard(QubitId q) { backend_.Discard(q); }
+    void Discard(const QubitId q) { backend_.Discard(q); }
 
     /**
      * Measure qubit q in the X basis and update the state to match the outcome.
      * @param q Qubit id.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    bool MeasureX(QubitId q) { return backend_.MeasureX(q); }
+    bool MeasureX(const QubitId q) { return backend_.MeasureX(q); }
 
     /**
      * Measure qubit q in the Z basis and update the state to match the outcome.
      * @param q Qubit id.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    bool MeasureZ(QubitId q) { return backend_.MeasureZ(q); }
+    bool MeasureZ(const QubitId q) { return backend_.MeasureZ(q); }
 
     /**
      * Measure and discard qubit q in the X basis.
      * @param id Qubit id.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    bool MeasureAndDiscardX(QubitId id) { return backend_.MeasureAndDiscardX(id); }
+    bool MeasureAndDiscardX(const QubitId id) { return backend_.MeasureAndDiscardX(id); }
 
     /**
      * Measure and discard qubit q in the Z basis.
      * @param id Qubit id.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    bool MeasureAndDiscardZ(QubitId id) { return backend_.MeasureAndDiscardZ(id); }
+    bool MeasureAndDiscardZ(const QubitId id) { return backend_.MeasureAndDiscardZ(id); }
 
     /**
      * Check whether measuring qubit q in the X basis is deterministic.
      * @param q Qubit id.
      * @return True if the measurement is deterministic, false otherwise.
      */
-    [[nodiscard]] bool IsDeterministicMeasureX(QubitId q) const {
+    [[nodiscard]] bool IsDeterministicMeasureX(const QubitId q) const
+        noexcept(noexcept(backend_.IsDeterministicMeasureX(q))) {
         return backend_.IsDeterministicMeasureX(q);
     }
 
@@ -122,7 +119,8 @@ class Simulator {
      * @param q Qubit id.
      * @return True if the measurement is deterministic, false otherwise.
      */
-    [[nodiscard]] bool IsDeterministicMeasureZ(QubitId q) const {
+    [[nodiscard]] bool IsDeterministicMeasureZ(const QubitId q) const
+        noexcept(noexcept(backend_.IsDeterministicMeasureZ(q))) {
         return backend_.IsDeterministicMeasureZ(q);
     }
 
@@ -132,7 +130,7 @@ class Simulator {
      * @param measurement Desired outcome: false for eigenvalue +1, true for eigenvalue -1.
      * @return The forced measurement outcome.
      */
-    bool ForceMeasureX(QubitId q, bool measurement) {
+    bool ForceMeasureX(const QubitId q, const bool measurement) {
         return backend_.ForceMeasureX(q, measurement);
     }
 
@@ -142,7 +140,7 @@ class Simulator {
      * @param measurement Desired outcome: false for eigenvalue +1, true for eigenvalue -1.
      * @return The forced measurement outcome.
      */
-    bool ForceMeasureZ(QubitId q, bool measurement) {
+    bool ForceMeasureZ(const QubitId q, const bool measurement) {
         return backend_.ForceMeasureZ(q, measurement);
     }
 
@@ -150,75 +148,256 @@ class Simulator {
      * Apply a Hadamard gate to qubit q.
      * @param q Stable qubit id.
      */
-    void H(QubitId q) { backend_.ApplyH(q); }
+    void H(const QubitId q) noexcept(noexcept(backend_.ApplyH(q))) { backend_.ApplyH(q); }
+
+    /**
+     * Apply a Hadamard gate to qubit q.
+     * Sample one Pauli error and apply it to q after the gate.
+     * @param q Stable qubit id.
+     * @param noise Pauli noise channel applied to qubit q.
+     */
+    void H(const QubitId q, const PauliNoise& noise) noexcept(requires {
+        { backend_.ApplyH(q, noise) } noexcept;
+    })
+        requires requires(Backend& backend) { backend.ApplyH(q, noise); }
+    {
+        backend_.ApplyH(q, noise);
+    }
 
     /**
      * Apply an S phase gate to qubit q.
      * @param q Stable qubit id.
      */
-    void S(QubitId q) { backend_.ApplyS(q); }
+    void S(const QubitId q) noexcept(noexcept(backend_.ApplyS(q))) { backend_.ApplyS(q); }
+
+    /**
+     * Apply an S phase gate to qubit q.
+     * Sample one Pauli error and apply it to q after the gate.
+     * @param q Stable qubit id.
+     * @param noise Pauli noise channel applied to qubit q.
+     */
+    void S(const QubitId q, const PauliNoise& noise) noexcept(requires {
+        { backend_.ApplyS(q, noise) } noexcept;
+    })
+        requires requires(Backend& backend) { backend.ApplyS(q, noise); }
+    {
+        backend_.ApplyS(q, noise);
+    }
 
     /**
      * Apply an S† gate to qubit q.
      * @param q Qubit id.
      */
-    void Sdg(QubitId q) { backend_.ApplySdg(q); }
+    void Sdg(const QubitId q) noexcept(noexcept(backend_.ApplySdg(q))) { backend_.ApplySdg(q); }
+
+    /**
+     * Apply an S† gate to qubit q.
+     * Sample one Pauli error and apply it to q after the gate.
+     * @param q Qubit id.
+     * @param noise Pauli noise channel applied to qubit q.
+     */
+    void Sdg(const QubitId q, const PauliNoise& noise) noexcept(requires {
+        { backend_.ApplySdg(q, noise) } noexcept;
+    })
+        requires requires(Backend& backend) { backend.ApplySdg(q, noise); }
+    {
+        backend_.ApplySdg(q, noise);
+    }
 
     /**
      * Apply an √X gate to qubit q.
      * @param q Qubit id.
      */
-    void Sx(QubitId q) { backend_.ApplySx(q); }
+    void Sx(const QubitId q) noexcept(noexcept(backend_.ApplySx(q))) { backend_.ApplySx(q); }
+
+    /**
+     * Apply an √X gate to qubit q.
+     * Sample one Pauli error and apply it to q after the gate.
+     * @param q Qubit id.
+     * @param noise Pauli noise channel applied to qubit q.
+     */
+    void Sx(const QubitId q, const PauliNoise& noise) noexcept(requires {
+        { backend_.ApplySx(q, noise) } noexcept;
+    })
+        requires requires(Backend& backend) { backend.ApplySx(q, noise); }
+    {
+        backend_.ApplySx(q, noise);
+    }
 
     /**
      * Apply the identity gate to qubit q.
      * @param q Qubit id.
      */
-    void I(QubitId q) { backend_.ApplyI(q); }
+    void I(const QubitId q) noexcept(noexcept(backend_.ApplyI(q))) { backend_.ApplyI(q); }
+
+    /**
+     * Apply the identity gate to qubit q.
+     * Sample one Pauli error and apply it to q after the gate.
+     * @param q Qubit id.
+     * @param noise Pauli noise channel applied to qubit q.
+     */
+    void I(const QubitId q, const PauliNoise& noise) noexcept(requires {
+        { backend_.ApplyI(q, noise) } noexcept;
+    })
+        requires requires(Backend& backend) { backend.ApplyI(q, noise); }
+    {
+        backend_.ApplyI(q, noise);
+    }
 
     /**
      * Apply a Pauli X gate to qubit q.
      * @param q Qubit id.
      */
-    void X(QubitId q) { backend_.ApplyX(q); }
+    void X(const QubitId q) noexcept(noexcept(backend_.ApplyX(q))) { backend_.ApplyX(q); }
+
+    /**
+     * Apply a Pauli X gate to qubit q.
+     * Sample one Pauli error and apply it to q after the gate.
+     * @param q Qubit id.
+     * @param noise Pauli noise channel applied to qubit q.
+     */
+    void X(const QubitId q, const PauliNoise& noise) noexcept(requires {
+        { backend_.ApplyX(q, noise) } noexcept;
+    })
+        requires requires(Backend& backend) { backend.ApplyX(q, noise); }
+    {
+        backend_.ApplyX(q, noise);
+    }
 
     /**
      * Apply a Pauli Z gate to qubit q.
      * @param q Qubit id.
      */
-    void Z(QubitId q) { backend_.ApplyZ(q); }
+    void Z(const QubitId q) noexcept(noexcept(backend_.ApplyZ(q))) { backend_.ApplyZ(q); }
+
+    /**
+     * Apply a Pauli Z gate to qubit q.
+     * Sample one Pauli error and apply it to q after the gate.
+     * @param q Qubit id.
+     * @param noise Pauli noise channel applied to qubit q.
+     */
+    void Z(const QubitId q, const PauliNoise& noise) noexcept(requires {
+        { backend_.ApplyZ(q, noise) } noexcept;
+    })
+        requires requires(Backend& backend) { backend.ApplyZ(q, noise); }
+    {
+        backend_.ApplyZ(q, noise);
+    }
 
     /**
      * Apply a Pauli Y gate to qubit q.
      * @param q Qubit id.
      */
-    void Y(QubitId q) { backend_.ApplyY(q); }
+    void Y(const QubitId q) noexcept(noexcept(backend_.ApplyY(q))) { backend_.ApplyY(q); }
 
     /**
-     * Apply a controlled X gate with control c and target t.
-     * @param c Control qubit id.
-     * @param t Target qubit id.
+     * Apply a Pauli Y gate to qubit q.
+     * Sample one Pauli error and apply it to q after the gate.
+     * @param q Qubit id.
+     * @param noise Pauli noise channel applied to qubit q.
      */
-    void Cx(QubitId c, QubitId t) { backend_.ApplyCx(c, t); }
+    void Y(const QubitId q, const PauliNoise& noise) noexcept(requires {
+        { backend_.ApplyY(q, noise) } noexcept;
+    })
+        requires requires(Backend& backend) { backend.ApplyY(q, noise); }
+    {
+        backend_.ApplyY(q, noise);
+    }
 
     /**
-     * Apply a controlled Z gate with control c and target t.
-     * @param c Control qubit id.
-     * @param t Target qubit id.
+     * Apply a controlled X gate from control to target.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
      */
-    void Cz(QubitId c, QubitId t) { backend_.ApplyCz(c, t); }
+    void Cx(const QubitId control,
+            const QubitId target) noexcept(noexcept(backend_.ApplyCx(control, target))) {
+        backend_.ApplyCx(control, target);
+    }
 
     /**
-     * Apply a controlled Y gate with control c and target t.
-     * @param c Control qubit id.
-     * @param t Target qubit id.
+     * Apply a controlled X gate from control to target.
+     * Sample and apply independent Pauli errors to control and target after the gate,
+     * in that order.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
+     * @param control_noise Pauli noise channel applied to the control qubit.
+     * @param target_noise Pauli noise channel applied to the target qubit.
      */
-    void Cy(QubitId c, QubitId t) { backend_.ApplyCy(c, t); }
+    void Cx(const QubitId control, const QubitId target, const PauliNoise& control_noise,
+            const PauliNoise& target_noise) noexcept(requires {
+        { backend_.ApplyCx(control, target, control_noise, target_noise) } noexcept;
+    })
+        requires requires(Backend& backend) {
+            backend.ApplyCx(control, target, control_noise, target_noise);
+        }
+    {
+        backend_.ApplyCx(control, target, control_noise, target_noise);
+    }
+
+    /**
+     * Apply a controlled Z gate from control to target.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
+     */
+    void Cz(const QubitId control,
+            const QubitId target) noexcept(noexcept(backend_.ApplyCz(control, target))) {
+        backend_.ApplyCz(control, target);
+    }
+
+    /**
+     * Apply a controlled Z gate from control to target.
+     * Sample and apply independent Pauli errors to control and target after the gate,
+     * in that order.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
+     * @param control_noise Pauli noise channel applied to the control qubit.
+     * @param target_noise Pauli noise channel applied to the target qubit.
+     */
+    void Cz(const QubitId control, const QubitId target, const PauliNoise& control_noise,
+            const PauliNoise& target_noise) noexcept(requires {
+        { backend_.ApplyCz(control, target, control_noise, target_noise) } noexcept;
+    })
+        requires requires(Backend& backend) {
+            backend.ApplyCz(control, target, control_noise, target_noise);
+        }
+    {
+        backend_.ApplyCz(control, target, control_noise, target_noise);
+    }
+
+    /**
+     * Apply a controlled Y gate from control to target.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
+     */
+    void Cy(const QubitId control,
+            const QubitId target) noexcept(noexcept(backend_.ApplyCy(control, target))) {
+        backend_.ApplyCy(control, target);
+    }
+
+    /**
+     * Apply a controlled Y gate from control to target.
+     * Sample and apply independent Pauli errors to control and target after the gate,
+     * in that order.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
+     * @param control_noise Pauli noise channel applied to the control qubit.
+     * @param target_noise Pauli noise channel applied to the target qubit.
+     */
+    void Cy(const QubitId control, const QubitId target, const PauliNoise& control_noise,
+            const PauliNoise& target_noise) noexcept(requires {
+        { backend_.ApplyCy(control, target, control_noise, target_noise) } noexcept;
+    })
+        requires requires(Backend& backend) {
+            backend.ApplyCy(control, target, control_noise, target_noise);
+        }
+    {
+        backend_.ApplyCy(control, target, control_noise, target_noise);
+    }
 
     /**
      * Print the backend's state representation to standard output.
      */
-    void Print() const { backend_.Print(); }
+    void Print() const noexcept(noexcept(backend_.Print())) { backend_.Print(); }
 
     /**
      * Return backend memory usage in bytes.

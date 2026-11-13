@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-#include "stabaal/detail/inverse_tableau.hpp"
+#include "stabaal/backends/inverse_tableau.hpp"
 #include "stabaal/simulator.hpp"
 #include "stabaal/types.hpp"
 
@@ -385,6 +385,37 @@ TEST_CASE("X and Z measurements sample both outcomes and remain repeatable",
         CHECK((x_basis ? t.MeasureX(0) : t.MeasureZ(0)) == result);
     }
     CHECK(seen.size() == 2);
+}
+
+TEST_CASE("Measurement RNG belongs to each tableau and is preserved by copies",
+          "[inverse_tableau][random][copy]") {
+    InverseTableau original{1};
+    for (unsigned i{0}; i < 11; ++i) {
+        original.ApplyH(0);
+        original.MeasureZ(0);
+    }
+
+    auto copied{original};
+    InverseTableau assigned{1};
+    assigned = original;
+    InverseTableau resized{0};
+    resized = original;
+    auto grown{original};
+    const auto added{grown.Add()};
+    grown.Discard(added);
+    auto moved{std::move(copied)};
+    InverseTableau unrelated{1};
+
+    for (unsigned i{0}; i < 256; ++i) {
+        original.ApplyH(0);
+        const auto expected{original.MeasureZ(0)};
+        for (auto* tableau : {&moved, &assigned, &resized, &grown}) {
+            unrelated.ApplyH(0);
+            unrelated.MeasureZ(0);
+            tableau->ApplyH(0);
+            CHECK(tableau->MeasureZ(0) == expected);
+        }
+    }
 }
 
 TEST_CASE("Bell state measurements remain correlated", "[inverse_tableau][entangle]") {
