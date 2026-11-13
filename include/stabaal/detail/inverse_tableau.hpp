@@ -295,7 +295,7 @@ class InverseTableau {
     /**
      * Number of ID's that fit in the mapping.
      */
-    QubitSize id_capacity_{0};
+    QubitSize id_map_capacity_{0};
 
     /**
      * First ID that is free to use.
@@ -303,15 +303,15 @@ class InverseTableau {
     QubitSize first_free_id_{kNoSlot};
 
     /**
-     * ID generations and physical slot mapping when needed.
+     * ID versions and physical slot mapping when needed.
      */
-    std::unique_ptr<std::uint32_t[]> generations_;
-    
+    std::unique_ptr<std::uint32_t[]> id_mappings_;
+
     /**
-     * Highest ID generation issued, and remembered even after the last qubit is discarded.
+     * Highest ID version issued, and remembered even after the last qubit is discarded.
      */
-    std::uint64_t generation_epoch_{0};
-    
+    std::uint64_t highest_id_version_{0};
+
     /**
      * Validate a qubit ID and find its physical tableau slot.
      * @param id Qubit ID to resolve.
@@ -319,7 +319,6 @@ class InverseTableau {
      * @throws std::out_of_range If the ID is not active.
      */
     [[nodiscard]] QubitSize ResolveQubit(QubitId id) const;
-
 
     /**
      * Check whether a discarded qubit must be retained for purification.
@@ -329,20 +328,20 @@ class InverseTableau {
     [[nodiscard]] bool RequiresPurification(QubitSize q) const noexcept;
 
     /**
-     * Read an ID slot's generation.
+     * Read an ID slot's version.
      * @param id_slot Logical ID slot.
-     * @return Current generation for the ID slot.
+     * @return Current version for the ID slot.
      */
-    [[nodiscard]] std::uint32_t Generation(QubitSize id_slot) const noexcept;
+    [[nodiscard]] std::uint32_t Version(QubitSize id_slot) const noexcept;
 
     /**
-     * Access an ID slot's stored generation for modification.
+     * Access an ID slot's stored version for modification.
      * @param id_slot Logical ID slot.
-     * @return Reference to the ID slot's generation.
-     * @pre Generation storage has been allocated.
+     * @return Reference to the ID slot's version.
+     * @pre Version storage has been allocated.
      */
-    [[nodiscard]] std::uint32_t& Generation(QubitSize id_slot) noexcept;
-    
+    [[nodiscard]] std::uint32_t& Version(QubitSize id_slot) noexcept;
+
     /**
      * Read an ID entry's physical slot or next free ID entry.
      * @param id_slot Logical ID slot.
@@ -403,7 +402,6 @@ class InverseTableau {
      * @param origins Original physical slot indices, updated when slots move.
      */
     void RemoveProductSlot(QubitSize q, BitWordSpan targets, std::span<QubitSize> origins) noexcept;
-    
 
     /**
      * Return the total word count for generator components and flags at the given capacity.

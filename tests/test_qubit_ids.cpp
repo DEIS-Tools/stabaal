@@ -379,7 +379,7 @@ TEST_CASE("Discarding all qubits contracts storage and never revives old IDs",
             CHECK_FALSE(sim.MeasureZ(id));
             CHECK_THROWS_AS(sim.H(q), std::out_of_range);
         }
-        // Generation counters must survive both storage growth and copies after reuse.
+        // Version counters must survive both storage growth and copies after reuse.
         const auto extra{sim.Add()};
         sim.X(extra);
         auto grown_copy{sim};
@@ -389,7 +389,7 @@ TEST_CASE("Discarding all qubits contracts storage and never revives old IDs",
     }
 }
 
-TEST_CASE("Entangled discard and fresh append need no generation array",
+TEST_CASE("Entangled discard and fresh append need no version array",
           "[simulator][ids][mixed][memory]") {
     stabaal::Simulator<> sim{4};
     sim.H(0);

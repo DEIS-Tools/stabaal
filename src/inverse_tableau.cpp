@@ -152,14 +152,14 @@ InverseTableau::InverseTableau(const InverseTableau& other)
       first_free_slot_{other.first_free_slot_},
       num_free_slots_{other.num_free_slots_},
       num_ids_{other.num_ids_},
-      id_capacity_{other.num_ids_},
+      id_map_capacity_{other.num_ids_},
       first_free_id_{other.first_free_id_},
-      generation_epoch_{other.generation_epoch_} {
+      highest_id_version_{other.highest_id_version_} {
     CopyRows(other);
-    if (other.generations_) {
-        const auto count{id_capacity_ != 0 ? std::size_t{2} * id_capacity_ : capacity_};
-        generations_ = std::make_unique_for_overwrite<std::uint32_t[]>(count);
-        std::copy_n(other.generations_.get(), count, generations_.get());
+    if (other.id_mappings_) {
+        const auto count{id_map_capacity_ != 0 ? std::size_t{2} * id_map_capacity_ : capacity_};
+        id_mappings_ = std::make_unique_for_overwrite<std::uint32_t[]>(count);
+        std::copy_n(other.id_mappings_.get(), count, id_mappings_.get());
     }
 }
 
@@ -167,13 +167,13 @@ InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
     if (this == &other) {
         return *this;
     }
-    
+
     if (words_ && capacity_ == other.num_slots_) {
-        const auto count{other.id_capacity_ != 0 ? std::size_t{2} * other.num_ids_ : capacity_};
-        auto generations{other.generations_ ? std::make_unique_for_overwrite<std::uint32_t[]>(count)
-                                            : nullptr};
-        if (generations) {
-            std::copy_n(other.generations_.get(), count, generations.get());
+        const auto count{other.id_map_capacity_ != 0 ? std::size_t{2} * other.num_ids_ : capacity_};
+        auto versions{other.id_mappings_ ? std::make_unique_for_overwrite<std::uint32_t[]>(count)
+                                         : nullptr};
+        if (versions) {
+            std::copy_n(other.id_mappings_.get(), count, versions.get());
         }
 
         CopyRows(other);
@@ -182,52 +182,53 @@ InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
         first_free_slot_ = other.first_free_slot_;
         num_free_slots_ = other.num_free_slots_;
         num_ids_ = other.num_ids_;
-        id_capacity_ = other.num_ids_;
+        id_map_capacity_ = other.num_ids_;
         first_free_id_ = other.first_free_id_;
-        generations_ = std::move(generations);
-        generation_epoch_ = other.generation_epoch_;
+        id_mappings_ = std::move(versions);
+        highest_id_version_ = other.highest_id_version_;
     } else {
         *this = InverseTableau{other};
     }
-    
+
     return *this;
 }
 
 QubitSize InverseTableau::NumQubits() const noexcept { return num_qubits_; }
 
-std::uint32_t InverseTableau::Generation(const QubitSize id_slot) const noexcept {
-    if (!generations_) {
-        return static_cast<std::uint32_t>(generation_epoch_);
+std::uint32_t InverseTableau::Version(const QubitSize id_slot) const noexcept {
+    if (!id_mappings_) {
+        return static_cast<std::uint32_t>(highest_id_version_);
     }
 
-    const auto count{id_capacity_ != 0 ? std::size_t{2} * id_capacity_ : capacity_};
-    const auto offset{id_capacity_ != 0 ? std::size_t{2} * id_slot + 1 : id_slot};
-    return std::span<const std::uint32_t>{generations_.get(), count}[offset];
+    const auto count{id_map_capacity_ != 0 ? std::size_t{2} * id_map_capacity_ : capacity_};
+    const auto offset{id_map_capacity_ != 0 ? std::size_t{2} * id_slot + 1 : id_slot};
+    return std::span<const std::uint32_t>{id_mappings_.get(), count}[offset];
 }
 
-std::uint32_t& InverseTableau::Generation(const QubitSize id_slot) noexcept {
-    assert(generations_);
-    const auto count{id_capacity_ != 0 ? std::size_t{2} * id_capacity_ : capacity_};
-    const auto offset{id_capacity_ != 0 ? std::size_t{2} * id_slot + 1 : id_slot};
-    return std::span{generations_.get(), count}[offset];
+std::uint32_t& InverseTableau::Version(const QubitSize id_slot) noexcept {
+    assert(id_mappings_);
+    const auto count{id_map_capacity_ != 0 ? std::size_t{2} * id_map_capacity_ : capacity_};
+    const auto offset{id_map_capacity_ != 0 ? std::size_t{2} * id_slot + 1 : id_slot};
+    return std::span{id_mappings_.get(), count}[offset];
 }
 
 QubitSize InverseTableau::IdIndex(const QubitSize id_slot) const noexcept {
-    assert(id_capacity_ != 0);
-    return std::span<const std::uint32_t>{generations_.get(),
-                                          std::size_t{2} * id_capacity_}[std::size_t{2} * id_slot];
+    assert(id_map_capacity_ != 0);
+    return std::span<const std::uint32_t>{
+        id_mappings_.get(), std::size_t{2} * id_map_capacity_}[std::size_t{2} * id_slot];
 }
 
 QubitSize& InverseTableau::IdIndex(const QubitSize id_slot) noexcept {
-    assert(id_capacity_ != 0);
-    return std::span{generations_.get(), std::size_t{2} * id_capacity_}[std::size_t{2} * id_slot];
+    assert(id_map_capacity_ != 0);
+    return std::span{id_mappings_.get(),
+                     std::size_t{2} * id_map_capacity_}[std::size_t{2} * id_slot];
 }
 
 QubitSize InverseTableau::ResolveQubit(const QubitId id) const {
-    if (!generations_ && generation_epoch_ == 0) {
+    if (!id_mappings_ && highest_id_version_ == 0) {
         if (id < num_slots_ &&
-            (num_qubits_ == num_slots_ || (!GetBit(Flags(kTombstoneFlags), id) &&
-                                           !GetBit(Flags(kPurificationFlags), id)))) {
+            (num_qubits_ == num_slots_ ||
+             (!GetBit(Flags(kTombstoneFlags), id) && !GetBit(Flags(kPurificationFlags), id)))) {
             return static_cast<QubitSize>(id);
         }
 
@@ -235,15 +236,15 @@ QubitSize InverseTableau::ResolveQubit(const QubitId id) const {
     }
 
     const auto slot{static_cast<QubitSize>(id)};
-    const auto generation{static_cast<std::uint32_t>(id >> 32U)};
-    const auto count{id_capacity_ != 0 ? num_ids_ : num_slots_};
-    if (slot < count && (generation & 1U) == 0 && Generation(slot) == generation) {
-        if (id_capacity_ != 0) {
+    const auto version{static_cast<std::uint32_t>(id >> 32U)};
+    const auto count{id_map_capacity_ != 0 ? num_ids_ : num_slots_};
+    if (slot < count && (version & 1U) == 0 && Version(slot) == version) {
+        if (id_map_capacity_ != 0) {
             return IdIndex(slot);
         }
 
-        if (num_qubits_ == num_slots_ || (!GetBit(Flags(kTombstoneFlags), slot) &&
-                                           !GetBit(Flags(kPurificationFlags), slot))) {
+        if (num_qubits_ == num_slots_ ||
+            (!GetBit(Flags(kTombstoneFlags), slot) && !GetBit(Flags(kPurificationFlags), slot))) {
             return slot;
         }
     }
@@ -252,7 +253,7 @@ QubitSize InverseTableau::ResolveQubit(const QubitId id) const {
 }
 
 void InverseTableau::MapIds() {
-    if (id_capacity_ != 0) {
+    if (id_map_capacity_ != 0) {
         return;
     }
 
@@ -261,23 +262,23 @@ void InverseTableau::MapIds() {
     const std::span entries{mapped.get(), std::size_t{2} * num_slots_};
     QubitSize free_id{kNoSlot};
     for (QubitSize slot{0}; slot < num_slots_; ++slot) {
-        auto generation{std::as_const(*this).Generation(slot)};
+        auto version{std::as_const(*this).Version(slot)};
         if (GetBit(Flags(kTombstoneFlags), slot) || GetBit(Flags(kPurificationFlags), slot)) {
-            generation |= 1U;
+            version |= 1U;
             entries[std::size_t{2} * slot] = free_id;
-            if (generation != std::numeric_limits<std::uint32_t>::max()) {
+            if (version != std::numeric_limits<std::uint32_t>::max()) {
                 free_id = slot;
             }
         } else {
             entries[std::size_t{2} * slot] = slot;
         }
 
-        entries[std::size_t{2} * slot + 1] = generation;
+        entries[std::size_t{2} * slot + 1] = version;
     }
 
-    generations_ = std::move(mapped);
+    id_mappings_ = std::move(mapped);
     num_ids_ = num_slots_;
-    id_capacity_ = num_slots_;
+    id_map_capacity_ = num_slots_;
     first_free_id_ = free_id;
 }
 
@@ -286,17 +287,17 @@ void InverseTableau::ReserveId() {
         throw std::length_error{"Qubit id slots exhausted"};
     }
 
-    if (num_ids_ < id_capacity_) {
+    if (num_ids_ < id_map_capacity_) {
         return;
     }
 
-    const auto growth{
-        std::min(std::max(id_capacity_ / kGrowthDivisor, QubitSize{1}), kNoSlot - id_capacity_)};
-    const auto capacity{id_capacity_ + growth};
+    const auto growth{std::min(std::max(id_map_capacity_ / kGrowthDivisor, QubitSize{1}),
+                               kNoSlot - id_map_capacity_)};
+    const auto capacity{id_map_capacity_ + growth};
     auto entries{std::make_unique_for_overwrite<std::uint32_t[]>(std::size_t{2} * capacity)};
-    std::copy_n(generations_.get(), std::size_t{2} * num_ids_, entries.get());
-    generations_ = std::move(entries);
-    id_capacity_ = capacity;
+    std::copy_n(id_mappings_.get(), std::size_t{2} * num_ids_, entries.get());
+    id_mappings_ = std::move(entries);
+    id_map_capacity_ = capacity;
 }
 
 void InverseTableau::AdvanceFreeSlot() noexcept {
@@ -326,16 +327,16 @@ QubitSize InverseTableau::AppendSlot() {
         grown.capacity_ = capacity_ + extra;
         grown.words_ = std::make_unique<BitWord[]>(NumWords(grown.capacity_));
         grown.CopyRows(*this);
-        if (generations_ && id_capacity_ == 0) {
-            grown.generations_ = std::make_unique<std::uint32_t[]>(grown.capacity_);
-            std::copy_n(generations_.get(), num_slots_, grown.generations_.get());
+        if (id_mappings_ && id_map_capacity_ == 0) {
+            grown.id_mappings_ = std::make_unique<std::uint32_t[]>(grown.capacity_);
+            std::copy_n(id_mappings_.get(), num_slots_, grown.id_mappings_.get());
         }
 
         words_ = std::move(grown.words_);
-        if (id_capacity_ == 0) {
-            generations_ = std::move(grown.generations_);
+        if (id_map_capacity_ == 0) {
+            id_mappings_ = std::move(grown.id_mappings_);
         }
-        
+
         capacity_ = grown.capacity_;
     }
 
@@ -350,49 +351,49 @@ QubitId InverseTableau::Add() {
         throw std::length_error{"Too many qubits"};
     }
 
-    if (id_capacity_ != 0 && first_free_id_ == kNoSlot) {
+    if (id_map_capacity_ != 0 && first_free_id_ == kNoSlot) {
         ReserveId();
     }
 
-    if (generation_epoch_ > std::numeric_limits<std::uint32_t>::max()) {
-        throw std::length_error{"Qubit generations exhausted"};
+    if (highest_id_version_ > std::numeric_limits<std::uint32_t>::max()) {
+        throw std::length_error{"Qubit versions exhausted"};
     }
 
     const auto slot{first_free_slot_};
-    if (slot != kNoSlot && !generations_) {
-        generations_ = std::make_unique_for_overwrite<std::uint32_t[]>(capacity_);
-        const std::span generations{generations_.get(), capacity_};
+    if (slot != kNoSlot && !id_mappings_) {
+        id_mappings_ = std::make_unique_for_overwrite<std::uint32_t[]>(capacity_);
+        const std::span versions{id_mappings_.get(), capacity_};
         const auto tombstones{Flags(kTombstoneFlags)};
         const auto purification{Flags(kPurificationFlags)};
         for (QubitSize q{0}; q < capacity_; ++q) {
-            generations[q] = static_cast<std::uint32_t>(generation_epoch_) +
-                             static_cast<std::uint32_t>(GetBit(tombstones, q) ||
-                                                        GetBit(purification, q));
+            versions[q] =
+                static_cast<std::uint32_t>(highest_id_version_) +
+                static_cast<std::uint32_t>(GetBit(tombstones, q) || GetBit(purification, q));
         }
     }
 
     const auto index{slot != kNoSlot ? slot : AppendSlot()};
     QubitSize id_slot{index};
-    auto generation{static_cast<std::uint32_t>(generation_epoch_)};
-    if (id_capacity_ != 0) {
+    auto version{static_cast<std::uint32_t>(highest_id_version_)};
+    if (id_map_capacity_ != 0) {
         if (first_free_id_ != kNoSlot) {
             id_slot = first_free_id_;
             first_free_id_ = IdIndex(id_slot);
-            generation = Generation(id_slot) + 1;
+            version = Version(id_slot) + 1;
         } else {
             id_slot = num_ids_++;
         }
 
         IdIndex(id_slot) = index;
-        Generation(id_slot) = generation;
-    } else if (generations_) {
+        Version(id_slot) = version;
+    } else if (id_mappings_) {
         if (slot != kNoSlot) {
-            generation = Generation(slot) + 1;
+            version = Version(slot) + 1;
         }
 
-        Generation(index) = generation;
+        Version(index) = version;
     }
-    generation_epoch_ = std::max(generation_epoch_, std::uint64_t{generation});
+    highest_id_version_ = std::max(highest_id_version_, std::uint64_t{version});
     if (slot != kNoSlot) {
         SetBit(Flags(kTombstoneFlags), slot, false);
         if (--num_free_slots_ == 0) {
@@ -403,7 +404,7 @@ QubitId InverseTableau::Add() {
     }
 
     ++num_qubits_;
-    return (QubitId{generation} << 32U) | id_slot;
+    return (QubitId{version} << 32U) | id_slot;
 }
 
 void InverseTableau::ResetProductSlot(const QubitSize q) noexcept {
@@ -423,8 +424,8 @@ void InverseTableau::Discard(const QubitId id) {
     const auto q{ResolveQubit(id)};
     const auto id_slot{static_cast<QubitSize>(id)};
     const bool pure{!RequiresPurification(q)};
-    if (id_capacity_ == 0 && generations_ &&
-        Generation(id_slot) == std::numeric_limits<std::uint32_t>::max() - 1) {
+    if (id_map_capacity_ == 0 && id_mappings_ &&
+        Version(id_slot) == std::numeric_limits<std::uint32_t>::max() - 1) {
         MapIds();
     }
 
@@ -432,13 +433,13 @@ void InverseTableau::Discard(const QubitId id) {
         ResetProductSlot(q);
     }
 
-    if (generations_) {
-        ++Generation(id_slot);
+    if (id_mappings_) {
+        ++Version(id_slot);
     }
 
-    if (id_capacity_ != 0) {
+    if (id_map_capacity_ != 0) {
         IdIndex(id_slot) = first_free_id_;
-        if (Generation(id_slot) != std::numeric_limits<std::uint32_t>::max()) {
+        if (Version(id_slot) != std::numeric_limits<std::uint32_t>::max()) {
             first_free_id_ = id_slot;
         }
     }
@@ -469,6 +470,7 @@ void InverseTableau::RemoveProductSlot(const QubitSize q, const BitWordSpan targ
     while (!GetBit(used, pivot)) {
         ++pivot;
     }
+
     SetBit(used, pivot, false);
     if (std::any_of(used.begin(), used.end(), [](const auto word) { return word != 0; })) {
         for (std::size_t basis{0}; basis < kBasisCount; ++basis) {
@@ -479,12 +481,6 @@ void InverseTableau::RemoveProductSlot(const QubitSize q, const BitWordSpan targ
                 FlipBit(signs, gen, reversed.CleanUp(pivot, used, false));
             }
         }
-    }
-
-    const auto x{Generator(q, Basis::kHadamard)};
-    const bool phase{x.MeasurementTargets(pivot, used)};
-    if (phase || std::any_of(used.begin(), used.end(), [](const auto word) { return word != 0; })) {
-        CleanUp(pivot, used, phase);
     }
 
     const auto last{num_slots_ - 1};
@@ -517,17 +513,17 @@ void InverseTableau::RemoveProductSlot(const QubitSize q, const BitWordSpan targ
 }
 
 void InverseTableau::Contract() {
-    if (num_qubits_ == 0 && generation_epoch_ < std::numeric_limits<std::uint32_t>::max() - 1) {
+    if (num_qubits_ == 0 && highest_id_version_ < std::numeric_limits<std::uint32_t>::max() - 1) {
         words_.reset();
-        generations_.reset();
+        id_mappings_.reset();
         num_slots_ = 0;
         capacity_ = 0;
         num_free_slots_ = 0;
         first_free_slot_ = kNoSlot;
         num_ids_ = 0;
-        id_capacity_ = 0;
+        id_map_capacity_ = 0;
         first_free_id_ = kNoSlot;
-        generation_epoch_ += 2;
+        highest_id_version_ += 2;
         return;
     }
 
@@ -546,7 +542,7 @@ void InverseTableau::Contract() {
     for (QubitSize q{0}; q < num_slots_; ++q) {
         origins[q] = q;
     }
-    
+
     MapIds();
     QubitSize q{0};
     while (q < num_slots_) {
@@ -556,13 +552,13 @@ void InverseTableau::Contract() {
             ++q;
         }
     }
-    
+
     for (QubitSize index{0}; index < num_slots_; ++index) {
         relocation[origins[index]] = index;
     }
 
     for (QubitSize id_slot{0}; id_slot < num_ids_; ++id_slot) {
-        if ((Generation(id_slot) & 1U) == 0) {
+        if ((Version(id_slot) & 1U) == 0) {
             IdIndex(id_slot) = relocation[IdIndex(id_slot)];
         }
     }
@@ -812,7 +808,7 @@ void InverseTableau::ApplyCy(const QubitId c, const QubitId t) {
 
 std::size_t InverseTableau::MemoryUsage() const noexcept {
     return sizeof(*this) + NumWords(capacity_) * sizeof(BitWord) +
-           (generations_ ? (id_capacity_ != 0 ? std::size_t{2} * id_capacity_ : capacity_) *
+           (id_mappings_ ? (id_map_capacity_ != 0 ? std::size_t{2} * id_map_capacity_ : capacity_) *
                                sizeof(std::uint32_t)
                          : 0);
 }
