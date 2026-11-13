@@ -97,12 +97,16 @@ void InverseTableau::FlipSign(const QubitSize generator_index, const Basis basis
 }
 
 InverseTableau::InverseTableau(const QubitSize num_qubits)
+    : InverseTableau(num_qubits, std::nullopt) {}
+
+InverseTableau::InverseTableau(const QubitSize num_qubits, const std::optional<std::uint64_t> seed)
     : words_{
           num_qubits == 0 ? nullptr : std::make_unique<BitWord[]>(NumWords(num_qubits)),
       },
       num_qubits_{num_qubits},
       num_slots_{num_qubits},
-      capacity_{num_qubits} {
+      capacity_{num_qubits},
+      measurement_engine_{seed ? Sfc64{*seed} : Sfc64{}} {
     for (QubitSize i{0}; i < num_qubits; ++i) {
         Generator(i, Basis::kComputational).SetZ(i);
         Generator(i, Basis::kHadamard).SetX(i);
@@ -633,10 +637,7 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b,
     if (measurement_opt) {
         p = measurement_opt.value();
     } else {
-        if (!measurement_engine_) {
-            measurement_engine_.emplace();
-        }
-        p = measurement_random_(*measurement_engine_);
+        p = measurement_random_(measurement_engine_);
     }
 
     Collapse(pivot, p);

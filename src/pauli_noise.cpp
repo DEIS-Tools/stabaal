@@ -6,6 +6,8 @@
 #include <random>
 #include <stdexcept>
 
+#include "stabaal/random.hpp"
+
 namespace stabaal {
 PauliNoise::PauliNoise(double wi, double wx, double wy, double wz) {
     for (const double weight : {wi, wx, wy, wz}) {

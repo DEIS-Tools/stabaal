@@ -22,7 +22,7 @@ class PauliNoise {
     explicit PauliNoise(double wi, double wx, double wy, double wz);
 
     /**
-     * Sample one Pauli error
+     * Sample one Pauli error.
      * @param rng Random engine to advance when sampling.
      * @return The sampled error: I, X, Y, or Z.
      */
@@ -37,7 +37,9 @@ class PauliNoise {
      * @param rng Random engine to advance when sampling.
      */
     template <SimulationBackend Backend>
-    void Apply(Backend& backend, QubitId q, RandomEngine& rng) const {
+    void Apply(Backend& backend, const QubitId q, RandomEngine& rng) const
+        noexcept(noexcept(backend.ApplyX(q)) && noexcept(backend.ApplyY(q)) &&
+                 noexcept(backend.ApplyZ(q))) {
         switch ((*this)(rng)) {
             case PauliError::kI:
                 break;

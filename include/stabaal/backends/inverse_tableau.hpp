@@ -36,6 +36,13 @@ class InverseTableau {
     explicit InverseTableau(QubitSize num_qubits);
 
     /**
+     * Create a tableau with num_qubits qubits initialized to |0>^num_qubits.
+     * @param num_qubits Number of qubits.
+     * @param seed Measurement random seed, or std::nullopt for automatic seeding.
+     */
+    explicit InverseTableau(QubitSize num_qubits, std::optional<std::uint64_t> seed);
+
+    /**
      * Copy the quantum and measurement RNG state into independent storage.
      * @param other Source tableau.
      */
@@ -313,8 +320,7 @@ class InverseTableau {
      */
     std::uint64_t generation_epoch_{0};
 
-    /** Seed on the first sampled measurement. Copies preserve the engine and cached bits. */
-    std::optional<Sfc64> measurement_engine_;
+    Sfc64 measurement_engine_;
     RandomBit<Sfc64::result_type> measurement_random_;
 
     /**
