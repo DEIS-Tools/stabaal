@@ -3,8 +3,10 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <optional>
+#include <span>
 
 #include "pauli_string_view.hpp"
 #include "stabaal/types.hpp"
@@ -12,7 +14,7 @@
 namespace stabaal::detail {
 
 /**
- * Simulate Clifford gates and Pauli measurements using an inverse stabilizer tableau.
+ * Simulate pure and mixed stabilizer states using an inverse tableau and hidden purification slots.
  */
 class InverseTableau {
    public:
@@ -70,140 +72,163 @@ class InverseTableau {
     [[nodiscard]] QubitSize NumQubits() const noexcept;
 
     /**
-     * Append a qubit initialized to |0>, growing storage if needed geometrically.
+     * Allocate a qubit initialized to |0>, reusing a slot or growing storage geometrically.
+     * @return The stable id of the allocated qubit.
      */
-    void Add();
+    QubitId Add();
+
+    /**
+     * Discard a qubit.
+     * Storage contracts when half of the qubits are unused.
+     * @param id Qubit id.
+     * @throws std::out_of_range If id is not active.
+     */
+    void Discard(QubitId id);
 
     /**
      * Measure qubit q in the X basis and update the state to match the outcome.
-     * @param q Qubit index.
+     * @param id Qubit id.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    bool MeasureX(QubitSize q);
+    bool MeasureX(QubitId id);
 
     /**
      * Measure qubit q in the Z basis and update the state to match the outcome.
-     * @param q Qubit index.
+     * @param id Qubit id.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
-    bool MeasureZ(QubitSize q);
+    bool MeasureZ(QubitId id);
+
+    /**
+     * Measure and discard qubit q in the X basis.
+     * @param id Qubit id.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool MeasureAndDiscardX(QubitId id);
+
+    /**
+     * Measure and discard qubit q in the Z basis.
+     * @param id Qubit id.
+     * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
+     */
+    bool MeasureAndDiscardZ(QubitId id);
 
     /**
      * Checks wether measuring qubit q in the X basis will be a deterministic measurement
-     * @param q Qubit index.
+     * @param id Qubit id.
      * @return The outcome: true if the measurement will be deterministic, false otherwise
+     * @throws std::out_of_range If id is not active.
      */
-    bool IsDeterministicMeasureX(QubitSize q);
+    [[nodiscard]] bool IsDeterministicMeasureX(QubitId id) const;
 
     /**
      * Checks wether measuring qubit q in the Z basis will be a deterministic measurement
-     * @param q Qubit index.
+     * @param id Stable qubit id.
      * @return The outcome: true if the measurement will be deterministic, false otherwise
+     * @throws std::out_of_range If id is not active.
      */
-    bool IsDeterministicMeasureZ(QubitSize q);
+    [[nodiscard]] bool IsDeterministicMeasureZ(QubitId id) const;
 
     /**
      * Forces a non-deterministic measurement in the X basis to have a certain outcome
-     * @param q Qubit index.
+     * @param id Stable qubit id.
      * @param measurement the desired outcome of the measurement.
      * @return The outcome of the measurement
      */
-    bool ForceMeasureX(QubitSize q, bool measurement);
+    bool ForceMeasureX(QubitId id, bool measurement);
 
     /**
      * Forces a non-deterministic measurement in the Z basis to have a certain outcome
-     * @param q Qubit index.
+     * @param id Qubit id.
      * @param measurement the desired outcome of the measurement.
      * @return The outcome of the measurement
      */
-    bool ForceMeasureZ(QubitSize q, bool measurement);
+    bool ForceMeasureZ(QubitId id, bool measurement);
 
     /**
      * Apply a Hadamard gate to qubit q.
-     * @param q Qubit index.
+     * @param id Qubit id.
      */
-    void ApplyH(QubitSize q) noexcept;
+    void ApplyH(QubitId id);
 
     /**
      * Apply an S phase gate to qubit q.
-     * @param q Qubit index.
+     * @param id Qubit id.
      */
-    void ApplyS(QubitSize q) noexcept;
+    void ApplyS(QubitId id);
 
     /**
      * Apply an S† gate to qubit q.
-     * @param q Qubit index.
+     * @param id Qubit id.
      */
-    void ApplySdg(QubitSize q) noexcept;
+    void ApplySdg(QubitId id);
 
     /**
      * Apply an √X gate to qubit q.
-     * @param q Qubit index.
+     * @param id Qubit id.
      */
-    void ApplySx(QubitSize q) noexcept;
+    void ApplySx(QubitId id);
 
     /**
      * Apply the identity gate to qubit q.
-     * @param q Qubit index.
+     * @param id Qubit id.
      */
-    void ApplyI(QubitSize q) noexcept;
+    void ApplyI(QubitId id);
 
     /**
      * Apply a Pauli X gate to qubit q.
-     * @param q Qubit index.
+     * @param id Qubit id.
      */
-    void ApplyX(QubitSize q) noexcept;
+    void ApplyX(QubitId id);
 
     /**
      * Apply a Pauli Z gate to qubit q.
-     * @param q Qubit index.
+     * @param id Qubit id.
      */
-    void ApplyZ(QubitSize q) noexcept;
+    void ApplyZ(QubitId id);
 
     /**
      * Apply a Pauli Y gate to qubit q.
-     * @param q Qubit index.
+     * @param id Qubit id.
      */
-    void ApplyY(QubitSize q) noexcept;
+    void ApplyY(QubitId id);
 
     /**
      * Apply a controlled X gate with control c and target t.
-     * @param c Control qubit index.
-     * @param t Target qubit index.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
      */
-    void ApplyCx(QubitSize c, QubitSize t) noexcept;
+    void ApplyCx(QubitId control, QubitId target);
 
     /**
      * Apply a controlled Z gate with control c and target t.
-     * @param c Control qubit index.
-     * @param t Target qubit index.
+     * @param c Control qubit id.
+     * @param t Target qubit id.
      */
-    void ApplyCz(QubitSize c, QubitSize t) noexcept;
+    void ApplyCz(QubitId c, QubitId t);
 
     /**
      * Apply a controlled Y gate with control c and target t.
-     * @param c Control qubit index.
-     * @param t Target qubit index.
+     * @param c Control qubit id.
+     * @param t Target qubit id.
      */
-    void ApplyCy(QubitSize c, QubitSize t) noexcept;
+    void ApplyCy(QubitId c, QubitId t);
 
     /**
-     * Print the active generators' X components, Z components, and signs to standard output.
+     * Print stored generators: [a] active, [p] purification, [†] tombstone.
      */
     void Print() const;
 
     /**
-     * Return the bytes used by this object and its allocated tableau, including spare capacity.
-     * Excludes allocator overhead and temporary measurement storage.
-     * @return Memory usage in bytes.
+     * Return the persistent bytes owned by this inverse tableau.
+     * @return Persistent memory usage in bytes.
      */
     [[nodiscard]] std::size_t MemoryUsage() const noexcept;
 
-    using UnaryGateFunction =
-        void (stabaal::detail::InverseTableau::*)(stabaal::QubitSize) noexcept;
+    using UnaryGateFunction = void (stabaal::detail::InverseTableau::*)(stabaal::QubitId);
 
-    using BinaryGateFunction =
-        void (stabaal::detail::InverseTableau::*)(stabaal::QubitSize, stabaal::QubitSize) noexcept;
+    using BinaryGateFunction = void (stabaal::detail::InverseTableau::*)(stabaal::QubitId,
+                                                                         stabaal::QubitId);
 
     /**
      * Return a struct containing the name, arity and a description of a gate
@@ -232,17 +257,151 @@ class InverseTableau {
     [[nodiscard]] static std::array<BinaryGateFunction, 3> SupportedBinaryGates();
 
    private:
-    std::unique_ptr<BitWord[]> words_;  // NOLINT(cppcoreguidelines-avoid-c-arrays)
+    std::unique_ptr<BitWord[]> words_;
 
     /**
-     * Number of qubits in the tableau.
+     * Number of active qubits.
      */
     QubitSize num_qubits_;
+
+    /** Stored slots, including tombstones and purification slots. */
+    QubitSize num_slots_;
 
     /**
      * Number of qubits the tableau can currently hold.
      */
     QubitSize capacity_;
+
+    /**
+     * Sentinel value indicating that there is no free slots that can be reused.
+     */
+    static constexpr QubitSize kNoSlot{std::numeric_limits<QubitSize>::max()};
+
+    /**
+     * First free slot that can be reused.
+     */
+    QubitSize first_free_slot_{kNoSlot};
+
+    /**
+     * Number of free slots that can be reused.
+     */
+    QubitSize num_free_slots_{0};
+
+    /**
+     * Number of logical ID's created.
+     */
+    QubitSize num_ids_{0};
+
+    /**
+     * Number of ID's that fit in the mapping.
+     */
+    QubitSize id_map_capacity_{0};
+
+    /**
+     * First ID that is free to use.
+     */
+    QubitSize first_free_id_{kNoSlot};
+
+    /**
+     * ID versions and physical slot mapping when needed.
+     */
+    std::unique_ptr<std::uint32_t[]> id_mappings_;
+
+    /**
+     * Highest ID version issued, and remembered even after the last qubit is discarded.
+     */
+    std::uint64_t highest_id_version_{0};
+
+    /**
+     * Validate a qubit ID and find its physical tableau slot.
+     * @param id Qubit ID to resolve.
+     * @return Physical tableau slot for the active qubit.
+     * @throws std::out_of_range If the ID is not active.
+     */
+    [[nodiscard]] QubitSize ResolveQubit(QubitId id) const;
+
+    /**
+     * Check whether a discarded qubit must be retained for purification.
+     * @param q Physical tableau slot.
+     * @return True if X, Y, and Z measurements are all nondeterministic.
+     */
+    [[nodiscard]] bool RequiresPurification(QubitSize q) const noexcept;
+
+    /**
+     * Read an ID slot's version.
+     * @param id_slot Logical ID slot.
+     * @return Current version for the ID slot.
+     */
+    [[nodiscard]] std::uint32_t Version(QubitSize id_slot) const noexcept;
+
+    /**
+     * Access an ID slot's stored version for modification.
+     * @param id_slot Logical ID slot.
+     * @return Reference to the ID slot's version.
+     * @pre Version storage has been allocated.
+     */
+    [[nodiscard]] std::uint32_t& Version(QubitSize id_slot) noexcept;
+
+    /**
+     * Read an ID entry's physical slot or next free ID entry.
+     * @param id_slot Logical ID slot.
+     * @return Physical slot if live, or the next free ID slot if dead.
+     */
+    [[nodiscard]] QubitSize IdIndex(QubitSize id_slot) const noexcept;
+
+    /**
+     * Access an ID entry's index for modification.
+     * @param id_slot Logical ID slot.
+     * @return Reference to the physical slot or next free ID slot.
+     */
+    [[nodiscard]] QubitSize& IdIndex(QubitSize id_slot) noexcept;
+
+    /**
+     * Create the mapping from logical ID slots to physical slots.
+     */
+    void MapIds();
+
+    /**
+     * Ensure the ID mapping has room for another entry.
+     */
+    void ReserveId();
+
+    /**
+     * Find the next reusable physical slot and update the cached index.
+     */
+    void AdvanceFreeSlot() noexcept;
+
+    /**
+     * Append a physical slot initialized to |0>, growing storage if needed.
+     * @return Index of the appended physical slot.
+     */
+    [[nodiscard]] QubitSize AppendSlot();
+
+    /**
+     * Reset a pure product qubit to |0> for reuse.
+     * @param q Physical tableau slot.
+     */
+    void ResetProductSlot(QubitSize q) noexcept;
+
+    /**
+     * Apply a phase operation to a physical tableau slot.
+     * @param q Physical tableau slot.
+     * @param phase_rule Phase exponent used to update the generator sign.
+     */
+    void ApplyPhase(QubitSize q, PhaseExponent phase_rule) noexcept;
+
+    /**
+     * Remove reusable slots and shrink storage when the contraction threshold is met.
+     */
+    void Contract();
+
+    /**
+     * Remove a reset product slot while preserving the remaining tableau state.
+     * @param q Physical tableau slot to remove.
+     * @param targets Scratch space for packed target bits.
+     * @param origins Original physical slot indices, updated when slots move.
+     */
+    void RemoveProductSlot(QubitSize q, BitWordSpan targets, std::span<QubitSize> origins) noexcept;
 
     /**
      * Return the total word count for generator components and flags at the given capacity.
@@ -267,14 +426,14 @@ class InverseTableau {
 
     /**
      * Return a writable view of packed flags.
-     * @param index Storage group: 0 or 1 for signs, 2 for swap flags.
+     * @param index Storage group: 0/1 signs, 2 swaps, 3 tombstones, 4 purification slots.
      * @return A view of the selected packed flags.
      */
     [[nodiscard]] BitWordSpan Flags(std::size_t index) noexcept;
 
     /**
      * Return a read-only view of packed flags.
-     * @param index Storage group: 0 or 1 for signs, 2 for swap flags.
+     * @param index Storage group: 0/1 signs, 2 swaps, 3 tombstones, 4 purification slots.
      * @return A view of the selected packed flags.
      */
     [[nodiscard]] ConstBitWordSpan Flags(std::size_t index) const noexcept;
@@ -322,7 +481,7 @@ class InverseTableau {
 
     /**
      * Copy generator components and flags from other into already allocated storage.
-     * The destination capacity must accommodate other's active qubits.
+     * The destination capacity must accommodate all of other's stored slots.
      * Does not update the active qubit count or allocate storage.
      * @param other Source tableau.
      */
@@ -342,7 +501,7 @@ class InverseTableau {
      * @param basis the basis to measure in.
      * @return the outcome: true if the measurement will be deterministic, false otherwise
      */
-    [[nodiscard]] bool IsDeterministicMeasure(QubitSize q, Basis basis);
+    [[nodiscard]] bool IsDeterministicMeasure(QubitSize q, Basis basis) const noexcept;
 
     /**
      * Forces a non-deterministic measurement in the selected basis to have a deterministic outcome
