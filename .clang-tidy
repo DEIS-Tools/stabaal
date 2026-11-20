@@ -12,6 +12,7 @@ Checks: >
   -readability-magic-numbers,
   -readability-math-missing-parentheses,
   -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-c-arrays,
   -bugprone-easily-swappable-parameters,
   -readability-function-cognitive-complexity,
   -misc-non-private-member-variables-in-classes,

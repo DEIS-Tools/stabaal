@@ -1,6 +1,8 @@
 #ifndef STABAAL_DETAIL_PAULI_STRING_VIEW_HPP
 #define STABAAL_DETAIL_PAULI_STRING_VIEW_HPP
 
+#include <cstddef>
+
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {
@@ -89,8 +91,13 @@ class PauliStringView {
                                              QubitSize num_qubits) noexcept;
 
    private:
-    BitWordSpan xs_;
-    BitWordSpan zs_;
+    [[nodiscard]] BitWordSpan XWords() const noexcept;
+    [[nodiscard]] BitWordSpan ZWords() const noexcept;
+
+    BitWord* xs_;
+    BitWord* zs_;
+
+    std::size_t num_words_;
 };
 
 }  // namespace stabaal::detail

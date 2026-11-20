@@ -9,6 +9,8 @@
 namespace stabaal {
 
 using QubitSize = std::uint32_t;
+using QubitId = std::uint64_t;
+
 using BitWord = std::uint64_t;
 using PhaseExponent = std::int64_t;
 using BitWordSpan = std::span<BitWord>;
