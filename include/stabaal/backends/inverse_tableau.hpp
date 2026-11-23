@@ -1,5 +1,5 @@
-#ifndef STABAAL_DETAIL_INVERSE_TABLEAU_HPP
-#define STABAAL_DETAIL_INVERSE_TABLEAU_HPP
+#ifndef STABAAL_BACKENDS_INVERSE_TABLEAU_HPP
+#define STABAAL_BACKENDS_INVERSE_TABLEAU_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -8,7 +8,8 @@
 #include <optional>
 #include <span>
 
-#include "pauli_string_view.hpp"
+#include "stabaal/detail/pauli_string_view.hpp"
+#include "stabaal/random.hpp"
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {
@@ -35,7 +36,14 @@ class InverseTableau {
     explicit InverseTableau(QubitSize num_qubits);
 
     /**
-     * Copy the state into independent storage.
+     * Create a tableau with num_qubits qubits initialized to |0>^num_qubits.
+     * @param num_qubits Number of qubits.
+     * @param seed Measurement random seed, or std::nullopt for automatic seeding.
+     */
+    explicit InverseTableau(QubitSize num_qubits, std::optional<std::uint64_t> seed);
+
+    /**
+     * Copy the quantum and measurement RNG state into independent storage.
      * @param other Source tableau.
      */
     InverseTableau(const InverseTableau& other);
@@ -194,25 +202,25 @@ class InverseTableau {
     void ApplyY(QubitId id);
 
     /**
-     * Apply a controlled X gate with control c and target t.
+     * Apply a controlled X gate from control to target.
      * @param control Control qubit id.
      * @param target Target qubit id.
      */
     void ApplyCx(QubitId control, QubitId target);
 
     /**
-     * Apply a controlled Z gate with control c and target t.
-     * @param c Control qubit id.
-     * @param t Target qubit id.
+     * Apply a controlled Z gate from control to target.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
      */
-    void ApplyCz(QubitId c, QubitId t);
+    void ApplyCz(QubitId control, QubitId target);
 
     /**
-     * Apply a controlled Y gate with control c and target t.
-     * @param c Control qubit id.
-     * @param t Target qubit id.
+     * Apply a controlled Y gate from control to target.
+     * @param control Control qubit id.
+     * @param target Target qubit id.
      */
-    void ApplyCy(QubitId c, QubitId t);
+    void ApplyCy(QubitId control, QubitId target);
 
     /**
      * Print stored generators: [a] active, [p] purification, [†] tombstone.
@@ -311,6 +319,9 @@ class InverseTableau {
      * Highest ID version issued, and remembered even after the last qubit is discarded.
      */
     std::uint64_t highest_id_version_{0};
+
+    Sfc64 measurement_engine_;
+    RandomBit<Sfc64::result_type> measurement_random_;
 
     /**
      * Validate a qubit ID and find its physical tableau slot.
@@ -539,5 +550,11 @@ class InverseTableau {
 };
 
 }  // namespace stabaal::detail
+
+namespace stabaal {
+
+using InverseTableau = detail::InverseTableau;
+
+}  // namespace stabaal
 
 #endif

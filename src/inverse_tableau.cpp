@@ -1,4 +1,4 @@
-#include "stabaal/detail/inverse_tableau.hpp"
+#include "stabaal/backends/inverse_tableau.hpp"
 
 #include <algorithm>
 #include <array>
@@ -19,7 +19,7 @@
 
 #include "stabaal/detail/bit_ops.hpp"
 #include "stabaal/detail/pauli_string_view.hpp"
-#include "stabaal/detail/random.hpp"
+#include "stabaal/random.hpp"
 #include "stabaal/types.hpp"
 
 namespace stabaal::detail {
@@ -97,12 +97,16 @@ void InverseTableau::FlipSign(const QubitSize generator_index, const Basis basis
 }
 
 InverseTableau::InverseTableau(const QubitSize num_qubits)
+    : InverseTableau(num_qubits, std::nullopt) {}
+
+InverseTableau::InverseTableau(const QubitSize num_qubits, const std::optional<std::uint64_t> seed)
     : words_{
           num_qubits == 0 ? nullptr : std::make_unique<BitWord[]>(NumWords(num_qubits)),
       },
       num_qubits_{num_qubits},
       num_slots_{num_qubits},
-      capacity_{num_qubits} {
+      capacity_{num_qubits},
+      measurement_engine_{seed ? Sfc64{*seed} : Sfc64{}} {
     for (QubitSize i{0}; i < num_qubits; ++i) {
         Generator(i, Basis::kComputational).SetZ(i);
         Generator(i, Basis::kHadamard).SetX(i);
@@ -154,7 +158,9 @@ InverseTableau::InverseTableau(const InverseTableau& other)
       num_ids_{other.num_ids_},
       id_map_capacity_{other.num_ids_},
       first_free_id_{other.first_free_id_},
-      highest_id_version_{other.highest_id_version_} {
+      highest_id_version_{other.highest_id_version_},
+      measurement_engine_{other.measurement_engine_},
+      measurement_random_{other.measurement_random_} {
     CopyRows(other);
     if (other.id_mappings_) {
         const auto count{id_map_capacity_ != 0 ? std::size_t{2} * id_map_capacity_ : capacity_};
@@ -186,6 +192,8 @@ InverseTableau& InverseTableau::operator=(const InverseTableau& other) {
         first_free_id_ = other.first_free_id_;
         id_mappings_ = std::move(versions);
         highest_id_version_ = other.highest_id_version_;
+        measurement_engine_ = other.measurement_engine_;
+        measurement_random_ = other.measurement_random_;
     } else {
         *this = InverseTableau{other};
     }
@@ -336,6 +344,7 @@ QubitSize InverseTableau::AppendSlot() {
         if (id_map_capacity_ == 0) {
             id_mappings_ = std::move(grown.id_mappings_);
         }
+
 
         capacity_ = grown.capacity_;
     }
@@ -623,9 +632,7 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b,
     if (measurement_opt) {
         p = measurement_opt.value();
     } else {
-        static thread_local Sfc64 engine;
-        static thread_local Random<Sfc64::result_type> random;
-        p = random(engine);
+        p = measurement_random_(measurement_engine_);
     }
 
     Collapse(pivot, p);
@@ -760,50 +767,52 @@ void InverseTableau::ApplyY(const QubitId id) {
 }
 
 void InverseTableau::ApplyCx(const QubitId control, const QubitId target) {
-    const auto c{ResolveQubit(control)};
-    const auto t{ResolveQubit(target)};
-    assert(c < num_slots_);
-    assert(t < num_slots_);
+    const auto control_slot{ResolveQubit(control)};
+    const auto target_slot{ResolveQubit(target)};
+    assert(control_slot < num_slots_);
+    assert(target_slot < num_slots_);
 
-    const auto c_computational{PhysicalBasis(c, Basis::kComputational)};
-    const auto t_computational{PhysicalBasis(t, Basis::kComputational)};
-    const auto c_hadamard{c_computational ^ 1U};
-    const auto t_hadamard{t_computational ^ 1U};
-    const auto c_hadamard_signs{Flags(c_hadamard)};
-    const auto t_hadamard_signs{Flags(t_hadamard)};
-    const bool c_hadamard_sign{GetBit(c_hadamard_signs, c)};
-    const bool t_hadamard_sign{GetBit(t_hadamard_signs, t)};
+    const auto control_computational{PhysicalBasis(control_slot, Basis::kComputational)};
+    const auto target_computational{PhysicalBasis(target_slot, Basis::kComputational)};
+    const auto control_hadamard{control_computational ^ 1U};
+    const auto target_hadamard{target_computational ^ 1U};
+    const auto control_hadamard_signs{Flags(control_hadamard)};
+    const auto target_hadamard_signs{Flags(target_hadamard)};
+    const bool control_hadamard_sign{GetBit(control_hadamard_signs, control_slot)};
+    const bool target_hadamard_sign{GetBit(target_hadamard_signs, target_slot)};
     const auto hadamard_phase{
-        PhysicalGenerator(c, c_hadamard).XorWithPhase(PhysicalGenerator(t, t_hadamard), num_slots_),
+        PhysicalGenerator(control_slot, control_hadamard)
+            .XorWithPhase(PhysicalGenerator(target_slot, target_hadamard), num_slots_),
     };
-    SetBit(c_hadamard_signs, c, Phase(hadamard_phase, c_hadamard_sign, t_hadamard_sign, 0));
+    SetBit(control_hadamard_signs, control_slot,
+           Phase(hadamard_phase, control_hadamard_sign, target_hadamard_sign, 0));
 
-    const auto c_computational_signs{Flags(c_computational)};
-    const auto t_computational_signs{Flags(t_computational)};
-    const bool c_computational_sign{GetBit(c_computational_signs, c)};
-    const bool t_computational_sign{GetBit(t_computational_signs, t)};
+    const auto control_computational_signs{Flags(control_computational)};
+    const auto target_computational_signs{Flags(target_computational)};
+    const bool control_computational_sign{GetBit(control_computational_signs, control_slot)};
+    const bool target_computational_sign{GetBit(target_computational_signs, target_slot)};
     const auto computational_phase{
-        PhysicalGenerator(t, t_computational)
-            .XorWithPhase(PhysicalGenerator(c, c_computational), num_slots_),
+        PhysicalGenerator(target_slot, target_computational)
+            .XorWithPhase(PhysicalGenerator(control_slot, control_computational), num_slots_),
     };
-    SetBit(t_computational_signs, t,
-           Phase(computational_phase, t_computational_sign, c_computational_sign, 0));
+    SetBit(target_computational_signs, target_slot,
+           Phase(computational_phase, target_computational_sign, control_computational_sign, 0));
 }
 
-void InverseTableau::ApplyCz(const QubitId c, const QubitId t) {
-    static_cast<void>(ResolveQubit(c));
-    static_cast<void>(ResolveQubit(t));
-    ApplyH(t);
-    ApplyCx(c, t);
-    ApplyH(t);
+void InverseTableau::ApplyCz(const QubitId control, const QubitId target) {
+    static_cast<void>(ResolveQubit(control));
+    static_cast<void>(ResolveQubit(target));
+    ApplyH(target);
+    ApplyCx(control, target);
+    ApplyH(target);
 }
 
-void InverseTableau::ApplyCy(const QubitId c, const QubitId t) {
-    static_cast<void>(ResolveQubit(c));
-    static_cast<void>(ResolveQubit(t));
-    ApplySdg(t);
-    ApplyCx(c, t);
-    ApplyS(t);
+void InverseTableau::ApplyCy(const QubitId control, const QubitId target) {
+    static_cast<void>(ResolveQubit(control));
+    static_cast<void>(ResolveQubit(target));
+    ApplySdg(target);
+    ApplyCx(control, target);
+    ApplyS(target);
 }
 
 std::size_t InverseTableau::MemoryUsage() const noexcept {
