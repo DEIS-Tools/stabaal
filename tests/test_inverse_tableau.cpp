@@ -572,8 +572,8 @@ TEST_CASE("Simulator rejects invalid gate and measurement indices", "[simulator]
         CHECK_THROWS_AS(tableau.MeasureZ(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.IsDeterministicMeasureX(q), std::out_of_range);
         CHECK_THROWS_AS(tableau.IsDeterministicMeasureZ(q), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ForceMeasureX(q, false), std::out_of_range);
-        CHECK_THROWS_AS(tableau.ForceMeasureZ(q, true), std::out_of_range);
+        CHECK_THROWS_AS(tableau.PostselectX(q, false), std::out_of_range);
+        CHECK_THROWS_AS(tableau.PostselectZ(q, true), std::out_of_range);
     }
     for (QubitSize q{0}; q < n; ++q) CHECK_FALSE(tableau.MeasureZ(q));
 }
@@ -1177,21 +1177,52 @@ TEST_CASE("Hidden purification preserves independent mixed qubits across word bo
     CHECK_FALSE(sim.MeasureZ(added));
 }
 
-TEST_CASE("ForceMeasureZ works correctly") {
+TEST_CASE("PostselectZ works correctly") {
     for (std::size_t i{0}; i < 100; i++) {
         InverseTableau tableau{2};
         tableau.ApplyH(0);
         tableau.ApplyH(1);
-        CHECK(tableau.ForceMeasureZ(0, 1) == 1);
-        CHECK(tableau.ForceMeasureZ(1, 0) == 0);
+        CHECK(tableau.PostselectZ(0, 1) == 1);
+        CHECK(tableau.PostselectZ(1, 0) == 0);
     }
 }
 
-TEST_CASE("ForceMeasureX works correctly") {
+TEST_CASE("PostselectX works correctly") {
     for (std::size_t i{0}; i < 100; i++) {
         InverseTableau tableau{2};
-        CHECK(tableau.ForceMeasureX(0, 1) == 1);
-        CHECK(tableau.ForceMeasureX(1, 0) == 0);
+        CHECK(tableau.PostselectX(0, 1) == 1);
+        CHECK(tableau.PostselectX(1, 0) == 0);
+    }
+}
+
+TEST_CASE("Postselection honors the requested outcome for signed observables",
+          "[simulator][measurement]") {
+    const auto outcome{GENERATE(false, true)};
+    Simulator<> sim{2};
+
+    SECTION("The Z observable has a negative sign before cleanup") {
+        sim.H(0);
+        sim.X(0);
+        REQUIRE_FALSE(sim.IsDeterministicMeasureZ(0));
+        CHECK(sim.PostselectZ(0, outcome) == outcome);
+        CHECK(sim.MeasureZ(0) == outcome);
+    }
+
+    SECTION("The X observable has a negative sign before cleanup") {
+        sim.Z(0);
+        REQUIRE_FALSE(sim.IsDeterministicMeasureX(0));
+        CHECK(sim.PostselectX(0, outcome) == outcome);
+        CHECK(sim.MeasureX(0) == outcome);
+    }
+
+    SECTION("Cleanup introduces a negative sign") {
+        sim.S(0);
+        sim.S(1);
+        sim.Cx(0, 1);
+        sim.H(0);
+        REQUIRE_FALSE(sim.IsDeterministicMeasureZ(0));
+        CHECK(sim.PostselectZ(0, outcome) == outcome);
+        CHECK(sim.MeasureZ(0) == outcome);
     }
 }
 

@@ -17,7 +17,7 @@ namespace stabaal {
 template <typename T>
 concept SimulationBackend =
     std::constructible_from<T, QubitSize> && requires(T& backend, const T& const_backend, QubitId q,
-                                                      QubitId c, QubitId t, bool measurement) {
+                                                      QubitId c, QubitId t, bool outcome) {
         { const_backend.NumQubits() } noexcept -> std::same_as<QubitSize>;
         { backend.Add() } -> std::same_as<QubitId>;
         { backend.Discard(q) } -> std::same_as<void>;
@@ -27,8 +27,8 @@ concept SimulationBackend =
         { backend.MeasureAndDiscardZ(q) } -> std::same_as<bool>;
         { const_backend.IsDeterministicMeasureX(q) } -> std::same_as<bool>;
         { const_backend.IsDeterministicMeasureZ(q) } -> std::same_as<bool>;
-        { backend.ForceMeasureX(q, measurement) } -> std::same_as<bool>;
-        { backend.ForceMeasureZ(q, measurement) } -> std::same_as<bool>;
+        { backend.PostselectX(q, outcome) } -> std::same_as<bool>;
+        { backend.PostselectZ(q, outcome) } -> std::same_as<bool>;
         { backend.ApplyH(q) } -> std::same_as<void>;
         { backend.ApplyS(q) } -> std::same_as<void>;
         { backend.ApplySdg(q) } -> std::same_as<void>;
@@ -127,24 +127,20 @@ class Simulator {
     }
 
     /**
-     * Force a non-deterministic X measurement of qubit q to the given outcome.
+     * Postselect on the given outcome of an X measurement of qubit q.
      * @param q Qubit id.
-     * @param measurement Desired outcome: false for eigenvalue +1, true for eigenvalue -1.
-     * @return The forced measurement outcome.
+     * @param outcome Desired outcome: false for eigenvalue +1, true for eigenvalue -1.
+     * @return The selected outcome.
      */
-    bool ForceMeasureX(QubitId q, bool measurement) {
-        return backend_.ForceMeasureX(q, measurement);
-    }
+    bool PostselectX(QubitId q, bool outcome) { return backend_.PostselectX(q, outcome); }
 
     /**
-     * Force a non-deterministic Z measurement of qubit q to the given outcome.
+     * Postselect on the given outcome of a Z measurement of qubit q.
      * @param q Qubit id.
-     * @param measurement Desired outcome: false for eigenvalue +1, true for eigenvalue -1.
-     * @return The forced measurement outcome.
+     * @param outcome Desired outcome: false for eigenvalue +1, true for eigenvalue -1.
+     * @return The selected outcome.
      */
-    bool ForceMeasureZ(QubitId q, bool measurement) {
-        return backend_.ForceMeasureZ(q, measurement);
-    }
+    bool PostselectZ(QubitId q, bool outcome) { return backend_.PostselectZ(q, outcome); }
 
     /**
      * Apply a Hadamard gate to qubit q.

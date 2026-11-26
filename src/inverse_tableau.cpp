@@ -597,7 +597,7 @@ void InverseTableau::Collapse(const QubitSize pivot, const bool p) noexcept {
 }
 
 bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b,
-                                       std::optional<bool> measurement_opt) {
+                                       std::optional<bool> postselected_outcome) {
     const auto gen{Generator(q, b)};
     QubitSize pivot{0};
 
@@ -619,16 +619,16 @@ bool InverseTableau::RandomMeasurement(const QubitSize q, const Basis b,
         CleanUp(pivot, targets, apply_s_dagger);
     }
 
-    bool p{false};
-    if (measurement_opt) {
-        p = measurement_opt.value();
+    bool pivot_outcome{false};
+    if (postselected_outcome) {
+        pivot_outcome = postselected_outcome.value() != Sign(q, b);
     } else {
         static thread_local Sfc64 engine;
         static thread_local Random<Sfc64::result_type> random;
-        p = random(engine);
+        pivot_outcome = random(engine);
     }
 
-    Collapse(pivot, p);
+    Collapse(pivot, pivot_outcome);
     return Sign(q, b);
 }
 
@@ -692,16 +692,16 @@ bool InverseTableau::MeasureAndDiscardZ(const QubitId id) {
     return outcome;
 }
 
-bool InverseTableau::ForceMeasure(const QubitSize q, bool measurement, Basis basis) {
-    return RandomMeasurement(q, basis, measurement);
+bool InverseTableau::Postselect(const QubitSize q, const bool outcome, const Basis basis) {
+    return RandomMeasurement(q, basis, outcome);
 }
 
-bool InverseTableau::ForceMeasureZ(const QubitId id, const bool measurement) {
-    return ForceMeasure(ResolveQubit(id), measurement, Basis::kComputational);
+bool InverseTableau::PostselectZ(const QubitId id, const bool outcome) {
+    return Postselect(ResolveQubit(id), outcome, Basis::kComputational);
 }
 
-bool InverseTableau::ForceMeasureX(const QubitId id, const bool measurement) {
-    return ForceMeasure(ResolveQubit(id), measurement, Basis::kHadamard);
+bool InverseTableau::PostselectX(const QubitId id, const bool outcome) {
+    return Postselect(ResolveQubit(id), outcome, Basis::kHadamard);
 }
 
 void InverseTableau::ApplyH(const QubitId id) {
