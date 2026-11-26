@@ -130,20 +130,20 @@ class InverseTableau {
     [[nodiscard]] bool IsDeterministicMeasureZ(QubitId id) const;
 
     /**
-     * Forces a non-deterministic measurement in the X basis to have a certain outcome
-     * @param id Stable qubit id.
-     * @param measurement the desired outcome of the measurement.
-     * @return The outcome of the measurement
+     * Postselect on the given outcome of an X measurement.
+     * @param id Qubit id.
+     * @param outcome Desired outcome: false for eigenvalue +1, true for eigenvalue -1.
+     * @return The selected outcome.
      */
-    bool ForceMeasureX(QubitId id, bool measurement);
+    bool PostselectX(QubitId id, bool outcome);
 
     /**
-     * Forces a non-deterministic measurement in the Z basis to have a certain outcome
+     * Postselect on the given outcome of a Z measurement.
      * @param id Qubit id.
-     * @param measurement the desired outcome of the measurement.
-     * @return The outcome of the measurement
+     * @param outcome Desired outcome: false for eigenvalue +1, true for eigenvalue -1.
+     * @return The selected outcome.
      */
-    bool ForceMeasureZ(QubitId id, bool measurement);
+    bool PostselectZ(QubitId id, bool outcome);
 
     /**
      * Apply a Hadamard gate to qubit q.
@@ -504,12 +504,13 @@ class InverseTableau {
     [[nodiscard]] bool IsDeterministicMeasure(QubitSize q, Basis basis) const noexcept;
 
     /**
-     * Forces a non-deterministic measurement in the selected basis to have a deterministic outcome
+     * Postselect on the given outcome of a nondeterministic measurement.
      * @param q Qubit index.
-     * @param basis the basis to measure in.
-     * @return the ourcome of the measurement
+     * @param outcome Desired outcome: false for eigenvalue +1, true for eigenvalue -1.
+     * @param basis Measurement basis.
+     * @return The selected outcome.
      */
-    bool ForceMeasure(QubitSize q, bool measurement, Basis basis);
+    bool Postselect(QubitSize q, bool outcome, Basis basis);
 
     /**
      * Apply measurement cleanup to every active generator and update their signs.
@@ -520,22 +521,22 @@ class InverseTableau {
     void CleanUp(QubitSize pivot, ConstBitWordSpan targets, bool apply_s_dagger) noexcept;
 
     /**
-     * Update all generators and signs for a random measurement after cleanup.
+     * Update all generators and signs after measurement cleanup.
      * @param pivot Position selected during cleanup.
-     * @param p Sampled measurement result.
+     * @param p Pivot outcome for the collapse.
      */
     void Collapse(QubitSize pivot, bool p) noexcept;
 
     /**
-     * Clean up and collapse the tableau for a measurement with a random outcome.
+     * Clean up and collapse the tableau for a nondeterministic measurement.
      * The generator for qubit q in basis b must contain an X component.
      * @param q Qubit index.
      * @param b Measurement basis.
-     * @param measurement_opt Force measurement to a specific outcome if not std::nullopt.
+     * @param postselected_outcome Desired outcome, or std::nullopt to sample it.
      * @return The outcome: false for eigenvalue +1, true for eigenvalue -1.
      */
     bool RandomMeasurement(QubitSize q, Basis b,
-                           std::optional<bool> measurement_opt = std::nullopt);
+                           std::optional<bool> postselected_outcome = std::nullopt);
 };
 
 }  // namespace stabaal::detail

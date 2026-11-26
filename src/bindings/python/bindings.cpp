@@ -47,10 +47,10 @@ PYBIND11_MODULE(stabaal, m) {
                  "Return whether an X measurement is deterministic.")
             .def("is_deterministic_measure_z", &InverseSim::IsDeterministicMeasureZ, py::arg("q"),
                  "Return whether a Z measurement is deterministic.")
-            .def("force_measure_x", &InverseSim::ForceMeasureX, py::arg("q"),
-                 py::arg("measurement"), "Force a non-deterministic X measurement outcome.")
-            .def("force_measure_z", &InverseSim::ForceMeasureZ, py::arg("q"),
-                 py::arg("measurement"), "Force a non-deterministic Z measurement outcome.")
+            .def("postselect_x", &InverseSim::PostselectX, py::arg("q"), py::arg("outcome"),
+                 "Postselect on the outcome of a nondeterministic X measurement.")
+            .def("postselect_z", &InverseSim::PostselectZ, py::arg("q"), py::arg("outcome"),
+                 "Postselect on the outcome of a nondeterministic Z measurement.")
             .def("print", &InverseSim::Print, "Print the backend's tableau to stdout.")
             .def(
                 "__repr__",

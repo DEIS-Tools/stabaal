@@ -107,11 +107,11 @@ struct IndexBackend {
         Record(q);
         return false;
     }
-    bool ForceMeasureX(const QubitId q, const bool outcome) {
+    bool PostselectX(const QubitId q, const bool outcome) {
         Record(q);
         return outcome;
     }
-    bool ForceMeasureZ(const QubitId q, const bool outcome) {
+    bool PostselectZ(const QubitId q, const bool outcome) {
         Record(q);
         return outcome;
     }
@@ -202,8 +202,8 @@ TEST_CASE("Reusing a middle storage slot gives a fresh id for every operation",
     routes([&] { CHECK_FALSE(sim.MeasureZ(replacement)); });
     routes([&] { CHECK(std::as_const(sim).IsDeterministicMeasureX(replacement)); });
     routes([&] { CHECK_FALSE(std::as_const(sim).IsDeterministicMeasureZ(replacement)); });
-    routes([&] { CHECK(sim.ForceMeasureX(replacement, true)); });
-    routes([&] { CHECK_FALSE(sim.ForceMeasureZ(replacement, false)); });
+    routes([&] { CHECK(sim.PostselectX(replacement, true)); });
+    routes([&] { CHECK_FALSE(sim.PostselectZ(replacement, false)); });
     routes([&] { sim.Cx(replacement, 2); });
     CHECK(IndexBackend::last_target == 2);
     routes([&] { sim.Cz(replacement, 2); });
@@ -233,8 +233,8 @@ TEST_CASE("Reusing a middle storage slot gives a fresh id for every operation",
     rejects([&] { sim.MeasureZ(1); });
     rejects([&] { static_cast<void>(sim.IsDeterministicMeasureX(1)); });
     rejects([&] { static_cast<void>(sim.IsDeterministicMeasureZ(1)); });
-    rejects([&] { sim.ForceMeasureX(1, false); });
-    rejects([&] { sim.ForceMeasureZ(1, false); });
+    rejects([&] { sim.PostselectX(1, false); });
+    rejects([&] { sim.PostselectZ(1, false); });
     rejects([&] { sim.Cx(1, replacement); });
     rejects([&] { sim.Cx(replacement, 1); });
     rejects([&] { sim.Cz(1, replacement); });
